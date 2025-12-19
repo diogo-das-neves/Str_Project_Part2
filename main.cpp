@@ -22,6 +22,8 @@ struct Record{
 };
 typedef Record Record;
 
+AnalogIn pot1(19);
+AnalogIn pot2(20);
 
 DigitalOut led1(LED1);
 DigitalOut led2(LED2);
@@ -34,7 +36,7 @@ PwmOut b(p25);
 LM75B sensor(p28,p27); // temp sensor
 C12832 lcd(p5, p7, p6, p8, p11); // lcd
 MMA7660 MMA(p28, p27); // I2C accelerometer
-
+PwmOut spkr(p26); //buzzer
 
 
 QueueHandle_t xQueue;
@@ -45,6 +47,8 @@ volatile uint8_t seconds;
 volatile uint8_t minutes;
 volatile uint8_t hours;
 volatile bool alarm;
+volatile float Period;
+volatile float DutyCycle;
 Record maxtemp;
 Record mintemp;
 
@@ -113,11 +117,35 @@ void vTask_Alarm(void *pvParameters){
     int32_t AlarmTrigger;
 
     for(;;){
-        xStatus = xQueueReceive( xQueue, &AlarmTrigger, 1000 );
-        //buzzerLogic
+        if(alarm){
+            spkr.period(Period);
+            spkr = DutyCycle;
+        } else {
+            spkr = 0.0f;
+        }
+    vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
+void vTask_Pot1(void *pvParameters){
+    BaseType_t xStatus;
+    float f;
+    for(;;){
+        f = pot1.read()*5000;
+        if(f <= 0){f = 0.01;}
+        Period = 1/f;
+        vTaskDelay(pdMS_TO_TICKS(200));
 
+        }
+    }
+void vTask_Pot2(void *pvParameters){
+    BaseType_t xStatus;
+    for(;;){
+        DutyCycle = pot2.read();
+        vTaskDelay(pdMS_TO_TICKS(200));
+
+        }
+    }
+    
 void vTask_temp(void *pvParameters){
     BaseType_t xStatus;
     float sensor_read;
@@ -148,20 +176,26 @@ void vTask_LCD(void *pvParameters){
 void vTask_records(void *pvParameters){
     BaseType_t xStatus;
     float sensor_read;
+    time_t t;
+    tm tm;
     for(;;){
         xStatus = xQueueReceive(xQueue2, &sensor_read, 1000);
         if(xStatus==pdPASS){
             if(sensor_read > maxtemp.temp){
+                time(&t);
+                localtime_r(&t, &tm);
                 maxtemp.temp = sensor_read;
-                maxtemp.timestamp.seconds = seconds;
-                maxtemp.timestamp.minutes = minutes;
-                maxtemp.timestamp.hours = hours;
+                maxtemp.timestamp.seconds = tm.tm_sec;
+                maxtemp.timestamp.minutes = tm.tm_min;
+                maxtemp.timestamp.hours = tm.tm_hour;
             }
             if(sensor_read < mintemp.temp){
+                time(&t);
+                localtime_r(&t, &tm);
                 mintemp.temp = sensor_read;
-                mintemp.timestamp.seconds = seconds;
-                mintemp.timestamp.minutes = minutes;
-                mintemp.timestamp.hours = hours;
+                mintemp.timestamp.seconds = tm.tm_sec;
+                mintemp.timestamp.minutes = tm.tm_min;
+                mintemp.timestamp.hours = tm.tm_hour;
             }
             
         }
@@ -193,26 +227,12 @@ void vTask_Temp_Light_Alarm(void *pvParamaters){
     }
 }
 
-void alarmFunction( void )
-{
-    seconds++;
-    if(seconds >= 60){
-        minutes++;
-        seconds-=60;
-    }
-    if(minutes >= 60){
-        hours++;
-        minutes-=60;
-    }
-}
 int main( void ) {
     /* Perform any hardware setup necessary. */
 //    prvSetupHardware();
     maxtemp.temp = 0;
     mintemp.temp = 50;
     set_time(0);
-    if(PMON != 0)
-        RTC::attach(&alarmFunction, RTC::Second);
     pc.baud(115200);
 
 //    printf("Hello from mbed -- FreeRTOS / cmd\n");
