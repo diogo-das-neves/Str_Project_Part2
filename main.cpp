@@ -4,6 +4,7 @@
 #include "projdefs.h"
 #include "task.h"
 #include "queue.h"
+#include "semphr.h"
 
 #include "LM75B.h"
 #include "C12832.h"
@@ -22,8 +23,10 @@ struct Record{
 };
 typedef Record Record;
 
-AnalogIn pot1(19);
-AnalogIn pot2(20);
+SemaphoreHandle_t AlarmMutex;
+
+AnalogIn pot1(p19);
+AnalogIn pot2(p20);
 
 DigitalOut led1(LED1);
 DigitalOut led2(LED2);
@@ -40,12 +43,10 @@ PwmOut spkr(p26); //buzzer
 
 
 QueueHandle_t xQueue;
+QueueHandle_t xQueue2;
 
 extern void monitor(void); //shared vars have to be protected
 extern float sensor_read;
-volatile uint8_t seconds;
-volatile uint8_t minutes;
-volatile uint8_t hours;
 volatile bool alarm;
 volatile float Period;
 volatile float DutyCycle;
@@ -117,12 +118,15 @@ void vTask_Alarm(void *pvParameters){
     int32_t AlarmTrigger;
 
     for(;;){
-        if(alarm){
-            spkr.period(Period);
-            spkr = DutyCycle;
-        } else {
-            spkr = 0.0f;
+        if(xSemaphoreTake(AlarmMutex, 200)){
+            if(alarm){
+                spkr.period(Period);
+                spkr = DutyCycle;
+            } else {
+                spkr = 0.0f;
+            }
         }
+        xSemaphoreGive(AlarmMutex);
     vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
@@ -132,7 +136,9 @@ void vTask_Pot1(void *pvParameters){
     for(;;){
         f = pot1.read()*5000;
         if(f <= 0){f = 0.01;}
-        Period = 1/f;
+        if(xSemaphoreTake(AlarmMutex, 200))
+            Period = 1/f;
+        xSemaphoreGive(AlarmMutex);
         vTaskDelay(pdMS_TO_TICKS(200));
 
         }
@@ -140,7 +146,9 @@ void vTask_Pot1(void *pvParameters){
 void vTask_Pot2(void *pvParameters){
     BaseType_t xStatus;
     for(;;){
-        DutyCycle = pot2.read();
+        if(xSemaphoreTake(AlarmMutex, 200))
+            DutyCycle = pot2.read();
+            xSemaphoreGive(AlarmMutex);
         vTaskDelay(pdMS_TO_TICKS(200));
 
         }
@@ -185,17 +193,17 @@ void vTask_records(void *pvParameters){
                 time(&t);
                 localtime_r(&t, &tm);
                 maxtemp.temp = sensor_read;
-                maxtemp.timestamp.seconds = tm.tm_sec;
-                maxtemp.timestamp.minutes = tm.tm_min;
-                maxtemp.timestamp.hours = tm.tm_hour;
+                maxtemp.timestamp.tm_sec = tm.tm_sec;
+                maxtemp.timestamp.tm_min = tm.tm_min;
+                maxtemp.timestamp.tm_hour = tm.tm_hour;
             }
             if(sensor_read < mintemp.temp){
                 time(&t);
                 localtime_r(&t, &tm);
                 mintemp.temp = sensor_read;
-                mintemp.timestamp.seconds = tm.tm_sec;
-                mintemp.timestamp.minutes = tm.tm_min;
-                mintemp.timestamp.hours = tm.tm_hour;
+                mintemp.timestamp.tm_sec = tm.tm_sec;
+                mintemp.timestamp.tm_min = tm.tm_min;
+                mintemp.timestamp.tm_hour = tm.tm_hour;
             }
             
         }
@@ -210,19 +218,25 @@ void vTask_Temp_Light_Alarm(void *pvParamaters){
             r = 0.8;
             g = 1;
             b = 1;
-            alarm = true;
+            if(xSemaphoreTake(AlarmMutex, 500))
+                alarm = true;
+            xSemaphoreGive(AlarmMutex);
         }
         else if(sensor_read <= 23){
             r = 1;
             g = 1;
             b = 0.8;
-            alarm = true;
+            if(xSemaphoreTake(AlarmMutex, 500))
+                alarm = true;
+            xSemaphoreGive(AlarmMutex);
         }
         else{
             r = 1;
             g = 0.8;
             b = 1;
-            alarm = false;
+            if(xSemaphoreTake(AlarmMutex, 500))
+                alarm = false;
+            xSemaphoreGive(AlarmMutex);
         }
     }
 }
@@ -235,6 +249,7 @@ int main( void ) {
     set_time(0);
     pc.baud(115200);
 
+    AlarmMutex = xSemaphoreCreateMutex();
 //    printf("Hello from mbed -- FreeRTOS / cmd\n");
 
     /* --- APPLICATION TASKS CAN BE CREATED HERE --- */
