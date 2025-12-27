@@ -24,6 +24,7 @@ struct Record{
 typedef Record Record;
 
 SemaphoreHandle_t AlarmMutex;
+SemaphoreHandle_t ClockMutex;
 
 AnalogIn pot1(p19);
 AnalogIn pot2(p20);
@@ -125,8 +126,8 @@ void vTask_Alarm(void *pvParameters){
             } else {
                 spkr = 0.0f;
             }
+            xSemaphoreGive(AlarmMutex);
         }
-        xSemaphoreGive(AlarmMutex);
     vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
@@ -138,7 +139,7 @@ void vTask_Pot1(void *pvParameters){
         if(f <= 0){f = 0.01;}
         if(xSemaphoreTake(AlarmMutex, 200))
             Period = 1/f;
-        xSemaphoreGive(AlarmMutex);
+            xSemaphoreGive(AlarmMutex);
         vTaskDelay(pdMS_TO_TICKS(200));
 
         }
@@ -169,11 +170,17 @@ void vTask_temp(void *pvParameters){
 void vTask_LCD(void *pvParameters){
     BaseType_t xStatus;
     float sensor_read;
+    time_t t;
+    tm tm;
     for(;;){
         xStatus = xQueueReceive(xQueue2, &sensor_read, 1000);
         if(xStatus==pdPASS){
-            lcd.locate(0,0); //3
-            lcd.printf("hh:mm:ss");
+            if(xSemaphoreTake(ClockMutex,100))
+                time(&t);
+                localtime_r(&t, &tm);
+                lcd.locate(0,0); //3
+                lcd.printf("%d:%d:%d",tm.tm_hour,tm.tm_min,tm.tm_sec);
+                xSemaphoreGive(ClockMutex);
             lcd.locate(0,11); //13
             lcd.printf("A: C T");
             lcd.locate(0,22); //26
@@ -190,20 +197,26 @@ void vTask_records(void *pvParameters){
         xStatus = xQueueReceive(xQueue2, &sensor_read, 1000);
         if(xStatus==pdPASS){
             if(sensor_read > maxtemp.temp){
-                time(&t);
-                localtime_r(&t, &tm);
-                maxtemp.temp = sensor_read;
-                maxtemp.timestamp.tm_sec = tm.tm_sec;
-                maxtemp.timestamp.tm_min = tm.tm_min;
-                maxtemp.timestamp.tm_hour = tm.tm_hour;
+                if(xSemaphoreTake(ClockMutex,200)){
+                    time(&t);
+                    localtime_r(&t, &tm);
+                    maxtemp.temp = sensor_read;
+                    maxtemp.timestamp.tm_sec = tm.tm_sec;
+                    maxtemp.timestamp.tm_min = tm.tm_min;
+                    maxtemp.timestamp.tm_hour = tm.tm_hour;
+                    xSemaphoreGive(ClockMutex);
+                    }
             }
             if(sensor_read < mintemp.temp){
-                time(&t);
-                localtime_r(&t, &tm);
-                mintemp.temp = sensor_read;
-                mintemp.timestamp.tm_sec = tm.tm_sec;
-                mintemp.timestamp.tm_min = tm.tm_min;
-                mintemp.timestamp.tm_hour = tm.tm_hour;
+                if(xSemaphoreTake(ClockMutex,200)){
+                    time(&t);
+                    localtime_r(&t, &tm);
+                    mintemp.temp = sensor_read;
+                    mintemp.timestamp.tm_sec = tm.tm_sec;
+                    mintemp.timestamp.tm_min = tm.tm_min;
+                    mintemp.timestamp.tm_hour = tm.tm_hour;
+                    xSemaphoreGive(ClockMutex);
+                    }
             }
             
         }
@@ -250,6 +263,7 @@ int main( void ) {
     pc.baud(115200);
 
     AlarmMutex = xSemaphoreCreateMutex();
+    ClockMutex = xSemaphoreCreateMutex();
 //    printf("Hello from mbed -- FreeRTOS / cmd\n");
 
     /* --- APPLICATION TASKS CAN BE CREATED HERE --- */
