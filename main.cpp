@@ -5,27 +5,24 @@
 #include "task.h"
 #include "queue.h"
 #include "semphr.h"
+#include "extras.h"
 
 #include "LM75B.h"
 #include "C12832.h"
 #include "RTC.h"
 #include "MMA7660.h"
 
-enum{
-    TL = 10,
-    TM = 25,
-    PMON = 5
-};
 
-struct Record{
-    uint8_t temp;
-    tm timestamp;
-};
-typedef Record Record;
+volatile int TL = 10;
+volatile int TM = 25;
+volatile int PMON = 5;
+volatile int TALA = 10;
 
-SemaphoreHandle_t AlarmMutex;
+SemaphoreHandle_t AlarmMutex;#include "task.h"
 SemaphoreHandle_t ClockMutex;
+SemaphoreHandle_t RecordMutex;
 
+TaskHandle_t xTask_temp;
 AnalogIn pot1(p19);
 AnalogIn pot2(p20);
 
@@ -160,9 +157,15 @@ void vTask_temp(void *pvParameters){
     float sensor_read;
     sensor.open();
     for(;;){
-        sensor_read = sensor.temp();
-        xStatus = xQueueSend(xQueue2, &sensor_read, 0);
-        vTaskDelay(pdMS_TO_TICKS(5000));//5 secs
+        if(PMON > 0){
+            sensor_read = sensor.temp();
+            xStatus = xQueueSend(xQueue2, &sensor_read, 0);
+            vTaskDelay(pdMS_TO_TICKS(PMON*1000));//5 secs
+        }else {
+            ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+            sensor_read = sensor.temp();
+            xStatus = xQueueSend(xQueue2, &sensor_read, 0);
+            }
 
     }
 }
@@ -273,7 +276,7 @@ int main( void ) {
 
     //xTaskCreate( vTask1, "Task 1", 2*configMINIMAL_STACK_SIZE, NULL, 1, NULL );
     //xTaskCreate( vTask2, "Task 2", 2*configMINIMAL_STACK_SIZE, NULL, 2, NULL );
-    xTaskCreate( vTask_temp, "Temp Task", 2*configMINIMAL_STACK_SIZE, NULL, 1, NULL );
+    xTaskCreate( vTask_temp, "Temp Task", 2*configMINIMAL_STACK_SIZE, NULL, 1, &xTask_temp );
     xTaskCreate( vTask_LCD, "LCD Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, NULL );
     xTaskCreate( vTask_Temp_Light_Alarm, "TempAlarm Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, NULL );
     xTaskCreate( vTask_records, "TempRecords Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, NULL );
