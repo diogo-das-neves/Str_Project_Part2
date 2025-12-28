@@ -14,11 +14,28 @@
 #include "mbed.h"
 #include "FreeRTOS.h"
 #include "semphr.h"
+#include "extras.h"
+#include "task.h"
+
+#include "mbed.h"
+#include "portmacro.h"
+#include "projdefs.h"
+#include "task.h"
+#include "queue.h"
 
 extern char* my_fgets(char *, int, FILE *);
 extern SemaphoreHandle_t ClockMutex;
+extern SemaphoreHandle_t RecordMutex;
+extern SemaphoreHandle_t ParamMutex;
+
 extern Record maxtemp;
 extern Record mintemp;
+extern volatile int TL = 10;
+extern volatile int TM = 25;
+extern volatile int PMON = 5;
+extern volatile int TALA = 10;
+
+extern TaskHandle_t xTask_temp;
 /*-------------------------------------------------------------------------+
 | Headers of command functions
 +--------------------------------------------------------------------------*/ 
@@ -32,6 +49,10 @@ extern void cmd_rc (int,char**);
 extern void cmd_rd (int,char**);
 extern void cmd_sc (int,char**);
 extern void cmd_rmm (int,char**);
+extern void cmd_cmm (int,char**);
+extern void cmd_rt (int,char**);
+extern void cmd_rp (int,char**);
+extern void cmd_mmp (int,char**);
 
 /*-------------------------------------------------------------------------+
 | Variable and constants definition
@@ -48,10 +69,16 @@ struct  command_d {
   {cmd_send, "send","<msg>            send message"},
   {cmd_sair, "sair","                 sair"},
   {cmd_test, "test","<arg1> <arg2>    test command_2"},
-  {cmd_rdt, "rdt" ,"                  read date and time"},          
-  {cmd_sd,"sd","<dd> <MM> <YY>        set date(dd:MM:YY)"},
-  {cmd_rd,"sd","                      read time"}
-  {cmd_sc,"sd","<hh> <mm> <ss>        set time(hh:mm:ss)"},
+  {cmd_rdt, "rdt" ,"                  reads date and time"},          
+  {cmd_sd,"sd","<dd> <MM> <YY>        sets date(dd:MM:YY)"},
+  {cmd_rd,"rd","                      reads time"},
+  {cmd_sc,"sc","<hh> <mm> <ss>        sets time(hh:mm:ss)"},
+  {cmd_rt,"rt","                      reads temperature"},
+  {cmd_rmm,"rmm","                    reads max and min temperature"},
+  {cmd_cmm,"cmm","                    clears max and min temperature"},
+  {cmd_rp,"rp","                      reads parameters (PMON,TALA)"},
+  {cmd_mmp,"mpp","<p>                 reads parameters (PMON,TALA)"},
+
 
 
 };
@@ -136,8 +163,6 @@ void cmd_rdt(int argc, char** argv){
     }
 }   
 void cmd_sd(int argc, char** argv){
-    struct tm t;
-    time_t seconds;
 
     if(xSemaphoreTake(ClockMutex, 100)) {
         struct tm t;
@@ -172,6 +197,19 @@ void cmd_rc(int argc,char**argcv){
     }
 
 }
+void cmd_rd(int argc,char**argcv){
+    tm tm;
+    time_t t;
+    if(xSemaphoreTake(ClockMutex, 100)) {
+        time(&t);
+        localtime_r(&t, &tm);
+        printf("%d/%d/%d\n",tm.tm_mday,tm.tm_mon,tm.tm_year);
+        xSemaphoreGive(ClockMutex);
+    } else {
+        printf("Failed to acquire ClockMutex\n");
+    }
+
+}
 void cmd_sc(int argc, char** argv){
     struct tm t;
     time_t seconds;
@@ -191,4 +229,54 @@ void cmd_sc(int argc, char** argv){
         printf("Failed to acquire ClockMutex\n");
     }
 }
+void cmd_rmm(int argc, char** argv){
+    if(xSemaphoreTake(RecordMutex, 100)){
+        printf("Max Temp: %d C  @ %02d:%02d:%02d\n",
+               maxtemp.temp,
+               maxtemp.timestamp.tm_hour,
+               maxtemp.timestamp.tm_min,
+               maxtemp.timestamp.tm_sec);
+
+        printf("Min Temp: %d C  @ %02d:%02d:%02d\n",
+               mintemp.temp,
+               mintemp.timestamp.tm_hour,
+               mintemp.timestamp.tm_min,
+               mintemp.timestamp.tm_sec);
+
+        xSemaphoreGive(RecordMutex);
+    } else {
+        printf("Failed to acquire RecordMutex\n");
+    }
+}
+
+void cmd_cmm(int argc, char** argv){
+    if(xSemaphoreTake(RecordMutex, 100)){
+        maxtemp.temp = -1;
+        maxtemp.timestamp.tm_hour = -1;
+        maxtemp.timestamp.tm_min = -1;
+        maxtemp.timestamp.tm_sec = -1;
+        mintemp.temp = -1;
+        mintemp.timestamp.tm_hour = -1;
+        mintemp.timestamp.tm_min = -1;
+        mintemp.timestamp.tm_sec = -1;
+        xSemaphoreGive(RecordMutex);
+    } else {
+        printf("Failed to acquire RecordMutex\n");
+    }
+}
+void cmd_rt(int argc, char** argv){
+    xTaskNotify(xTask_temp, 0,eNoAction);
+    }
+void cmd_rp(int argc, char** argv){
+    if(xSemaphoreTake(ParamMutex, 100)){
+        printf("PMON %d     TALA %d",PMON,TALA);
+        xSemaphoreGive(ParamMutex);
+    } else {
+        printf("Failed to acquire RecordMutex\n");
+    }
+}
+void cmd_mmp(int argc, char** argv){
+    PMON = atoi(argv[0]);
+    if(PMON > 0){xTaskNotify(xTask_temp, 0,eNoAction);}
+    }
 //#endif //notdef
