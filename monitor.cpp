@@ -30,12 +30,15 @@ extern SemaphoreHandle_t ParamMutex;
 
 extern Record maxtemp;
 extern Record mintemp;
-extern volatile int TL = 10;
-extern volatile int TM = 25;
-extern volatile int PMON = 5;
-extern volatile int TALA = 10;
-
 extern TaskHandle_t xTask_temp;
+extern volatile int TL;
+extern volatile int TM;
+extern volatile int PMON;
+extern volatile int TALA;
+extern volatile bool alarm;
+
+
+tm time_alarm = RTC::getDefaultTM();
 /*-------------------------------------------------------------------------+
 | Headers of command functions
 +--------------------------------------------------------------------------*/ 
@@ -53,6 +56,8 @@ extern void cmd_cmm (int,char**);
 extern void cmd_rt (int,char**);
 extern void cmd_rp (int,char**);
 extern void cmd_mmp (int,char**);
+extern void cmd_mta (int,char**);
+extern void cmd_rai (int,char**);
 
 /*-------------------------------------------------------------------------+
 | Variable and constants definition
@@ -77,7 +82,9 @@ struct  command_d {
   {cmd_rmm,"rmm","                    reads max and min temperature"},
   {cmd_cmm,"cmm","                    clears max and min temperature"},
   {cmd_rp,"rp","                      reads parameters (PMON,TALA)"},
-  {cmd_mmp,"mpp","<p>                 reads parameters (PMON,TALA)"},
+  {cmd_mmp,"mpp","<p>                 modify PMON (PMON,TALA)"},
+  {cmd_mta,"mta","<s>                 modify TAla (PMON,TALA)"},
+  {cmd_rai,"rai","<s>                 read alarm info (alarm clock, tlow, thigh, active/inactive)"},
 
 
 
@@ -276,7 +283,34 @@ void cmd_rp(int argc, char** argv){
     }
 }
 void cmd_mmp(int argc, char** argv){
-    PMON = atoi(argv[0]);
+    if(xSemaphoreTake(ParamMutex, 200))
+        {
+        PMON = atoi(argv[0]);
+        xSemaphoreGive(ParamMutex);
+        }
     if(PMON > 0){xTaskNotify(xTask_temp, 0,eNoAction);}
     }
+void cmd_mta(int argc, char** argv){
+    if(xSemaphoreTake(ParamMutex, 200))
+        TALA = atoi(argv[0]);
+        xSemaphoreGive(ParamMutex);
+    }
+
+void cmd_rai(int argc, char** argv){
+    if(xSemaphoreTake(ParamMutex, 200)){
+        printf(
+        "Alarm time: %02d:%02d:%02d\n"
+        "Min temperature: %d C\n"
+        "Max temperature: %d C\n"
+        "Alarm active: %s\n",
+        tm.tm_hour,
+        tm.tm_min,
+        tm.tm_sec,
+        TL,
+        TM,
+        alarm ? "ON" : "OFF");
+
+        xSemaphoreGive(ParamMutex);
+    }
+}
 //#endif //notdef
