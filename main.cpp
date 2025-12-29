@@ -18,11 +18,13 @@ volatile int TM = 25;
 volatile int PMON = 5;
 volatile int TALA = 10;
 
-SemaphoreHandle_t AlarmMutex;#include "task.h"
+SemaphoreHandle_t AlarmMutex;
 SemaphoreHandle_t ClockMutex;
 SemaphoreHandle_t RecordMutex;
 
 TaskHandle_t xTask_temp;
+TaskHandle_t xTask_Alarm;
+
 AnalogIn pot1(p19);
 AnalogIn pot2(p20);
 
@@ -113,9 +115,9 @@ void vTask_MCU(void *pvParameters){
 }
 void vTask_Alarm(void *pvParameters){
     BaseType_t xStatus;
-    int32_t AlarmTrigger;
 
     for(;;){
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
         if(xSemaphoreTake(AlarmMutex, 200)){
             if(alarm){
                 spkr.period(Period);
@@ -134,7 +136,7 @@ void vTask_Pot1(void *pvParameters){
     for(;;){
         f = pot1.read()*5000;
         if(f <= 0){f = 0.01;}
-        if(xSemaphoreTake(AlarmMutex, 200))
+        if(xSemaphoreTake(AlarmMutex, 100))
             Period = 1/f;
             xSemaphoreGive(AlarmMutex);
         vTaskDelay(pdMS_TO_TICKS(200));
@@ -234,29 +236,29 @@ void vTask_Temp_Light_Alarm(void *pvParamaters){
             r = 0.8;
             g = 1;
             b = 1;
-            if(xSemaphoreTake(AlarmMutex, 500))
-                alarm = true;
+            if(alarm && xSemaphoreTake(AlarmMutex, 500))
+                xTaskNotify(xTask_Alarm, 0,eNoAction);
             xSemaphoreGive(AlarmMutex);
         }
         else if(sensor_read <= 23){
             r = 1;
             g = 1;
             b = 0.8;
-            if(xSemaphoreTake(AlarmMutex, 500))
-                alarm = true;
+            if(alarm && xSemaphoreTake(AlarmMutex, 500))
+                xTaskNotify(xTask_Alarm, 0,eNoAction);
             xSemaphoreGive(AlarmMutex);
         }
         else{
             r = 1;
             g = 0.8;
             b = 1;
-            if(xSemaphoreTake(AlarmMutex, 500))
-                alarm = false;
-            xSemaphoreGive(AlarmMutex);
         }
     }
 }
-
+void alarmFunction(void){
+    if(alarm)
+        xTaskNotify(xTask_Alarm, 0,eNoAction);
+}
 int main( void ) {
     /* Perform any hardware setup necessary. */
 //    prvSetupHardware();
@@ -275,7 +277,7 @@ int main( void ) {
     xQueue2 = xQueueCreate( 4, sizeof( float ) );
 
     //xTaskCreate( vTask1, "Task 1", 2*configMINIMAL_STACK_SIZE, NULL, 1, NULL );
-    //xTaskCreate( vTask2, "Task 2", 2*configMINIMAL_STACK_SIZE, NULL, 2, NULL );
+    xTaskCreate( vTask_Alarm, "Alarm Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, &xTask_Alarm );
     xTaskCreate( vTask_temp, "Temp Task", 2*configMINIMAL_STACK_SIZE, NULL, 1, &xTask_temp );
     xTaskCreate( vTask_LCD, "LCD Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, NULL );
     xTaskCreate( vTask_Temp_Light_Alarm, "TempAlarm Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, NULL );
