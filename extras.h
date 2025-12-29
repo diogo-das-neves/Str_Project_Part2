@@ -4,9 +4,8 @@
 #include "RTC.h"
 
 
-struct Record {
+typedef struct {
     int temp;
     tm timestamp;
-};
-typedef struct Record Record; 
+} Record;
 #endif

@@ -22,6 +22,7 @@ SemaphoreHandle_t AlarmMutex;
 SemaphoreHandle_t ClockMutex;
 SemaphoreHandle_t RecordMutex;
 SemaphoreHandle_t ParamMutex;
+SemaphoreHandle_t StateMutex;
 
 TaskHandle_t xTask_temp;
 TaskHandle_t xTask_Alarm;
@@ -48,7 +49,9 @@ QueueHandle_t xQueue2;
 
 extern void monitor(void); //shared vars have to be protected
 extern float sensor_read;
-volatile bool alarm;
+volatile bool alarm; // #TODO replace this with alarm_clock | temp_alarm, since they are separate
+volatile bool alarm_clock = false;
+volatile bool temp_alarm = false;
 volatile float Period;
 volatile float DutyCycle;
 Record maxtemp;
