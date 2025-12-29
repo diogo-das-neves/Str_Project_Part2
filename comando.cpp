@@ -79,17 +79,6 @@ int validateInput(int input, int min, int max, int* output) {
         printf("Failed to acquire %s\n", #MUTEX);\
     }
 
-
-/*-------------------------------------------------------------------------+
-| Function: cmd_test - print out arguments
-+--------------------------------------------------------------------------*/
-void cmd_test(int argc, char **argv) {
-    int i;
-
-    for (i = 0; i < argc; i++)
-        printf("argv[%d] = %s\n", i, argv[i]);
-}
-
 /*-------------------------------------------------------------------------+
 | Function: cmd_readdatetime - print DD/MM/YYYY hh:mm:ss
 +--------------------------------------------------------------------------*/

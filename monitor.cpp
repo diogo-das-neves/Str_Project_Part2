@@ -19,7 +19,7 @@ extern char* my_fgets(char *, int, FILE *);
 | Headers of command functions
 +--------------------------------------------------------------------------*/ 
 void cmd_help  (int, char** );
-extern void cmd_test  (int, char** );
+void cmd_test  (int, char** );
 extern void cmd_readdatetime  (int, char** );
 extern void cmd_readclock  (int, char** );
 extern void cmd_setdate  (int, char** );
@@ -71,7 +71,7 @@ struct  command_d {
   {cmd_bubblelevelen,"adbl"," <1/0>          : enable/disable bubble level", 1},
   {cmd_hitbiten,     "adhb"," <1/0>          : enable/disable hit bit game", 1},
   {cmd_configsounden,"adcs"," <1/0>          : enable/disable config sound", 1},
-  {cmd_test,         "test"," <a1> <a2 <a3>  : TESTING", 3 }
+  {cmd_test,         "test"," <a1> <a2 <a3>  : TESTING - prints out argv", 3 }
 };
 
 #define NCOMMANDS  (sizeof(commands)/sizeof(struct command_d))
@@ -147,6 +147,16 @@ void cmd_help (int argc, char **argv)
   printf("----------------------------------\n");
   for (int i=0; i<NCOMMANDS; i++)
     printf(" %s%s\n", commands[i].cmd_name, commands[i].cmd_help);
+}
+
+/*-------------------------------------------------------------------------+
+| Function: cmd_test - print out arguments
++--------------------------------------------------------------------------*/
+void cmd_test(int argc, char **argv) {
+    int i;
+
+    for (i = 0; i < argc; i++)
+        printf("argv[%d] = %s\n", i, argv[i]);
 }
 
 //#endif //notdef
