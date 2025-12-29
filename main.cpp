@@ -21,6 +21,7 @@ volatile int TALA = 10;
 SemaphoreHandle_t AlarmMutex;
 SemaphoreHandle_t ClockMutex;
 SemaphoreHandle_t RecordMutex;
+SemaphoreHandle_t ParamMutex;
 
 TaskHandle_t xTask_temp;
 TaskHandle_t xTask_Alarm;
