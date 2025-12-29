@@ -30,15 +30,14 @@ extern SemaphoreHandle_t ParamMutex;
 
 extern Record maxtemp;
 extern Record mintemp;
-extern TaskHandle_t xTask_temp;
 extern volatile int TL;
 extern volatile int TM;
 extern volatile int PMON;
 extern volatile int TALA;
 extern volatile bool alarm;
-
-
-tm time_alarm = RTC::getDefaultTM();
+extern TaskHandle_t xTask_temp;
+extern void alarmFunction(void);
+tm alarm_time = RTC::getDefaultTM();
 /*-------------------------------------------------------------------------+
 | Headers of command functions
 +--------------------------------------------------------------------------*/ 
@@ -58,6 +57,8 @@ extern void cmd_rp (int,char**);
 extern void cmd_mmp (int,char**);
 extern void cmd_mta (int,char**);
 extern void cmd_rai (int,char**);
+extern void cmd_sac (int,char**);
+extern void cmd_sat (int,char**);
 
 /*-------------------------------------------------------------------------+
 | Variable and constants definition
@@ -85,6 +86,8 @@ struct  command_d {
   {cmd_mmp,"mpp","<p>                 modify PMON (PMON,TALA)"},
   {cmd_mta,"mta","<s>                 modify TAla (PMON,TALA)"},
   {cmd_rai,"rai","<s>                 read alarm info (alarm clock, tlow, thigh, active/inactive)"},
+  {cmd_sac,"sac","<hh> <mm> <ss>      set alarm clock (hh:mm:ss)"},
+  {cmd_sat,"sat","<tl> <tm>           set alarm threshold (tlow,thigh)"},
 
 
 
@@ -283,7 +286,7 @@ void cmd_rp(int argc, char** argv){
     }
 }
 void cmd_mmp(int argc, char** argv){
-    if(xSemaphoreTake(ParamMutex, 200))
+    if(xSemaphoreTake(ParamMutex, 100))
         {
         PMON = atoi(argv[0]);
         xSemaphoreGive(ParamMutex);
@@ -291,7 +294,7 @@ void cmd_mmp(int argc, char** argv){
     if(PMON > 0){xTaskNotify(xTask_temp, 0,eNoAction);}
     }
 void cmd_mta(int argc, char** argv){
-    if(xSemaphoreTake(ParamMutex, 200))
+    if(xSemaphoreTake(ParamMutex, 100))
         TALA = atoi(argv[0]);
         xSemaphoreGive(ParamMutex);
     }
@@ -303,14 +306,40 @@ void cmd_rai(int argc, char** argv){
         "Min temperature: %d C\n"
         "Max temperature: %d C\n"
         "Alarm active: %s\n",
-        tm.tm_hour,
-        tm.tm_min,
-        tm.tm_sec,
+        alarm_time.tm_hour,
+        alarm_time.tm_min,
+        alarm_time.tm_sec,
         TL,
         TM,
         alarm ? "ON" : "OFF");
 
         xSemaphoreGive(ParamMutex);
     }
+    
+}
+
+void cmd_sac(int argc, char** argv){
+    if((atoi(argv[0]) <= 23 && atoi(argv[0]) >= 0)
+     ||(atoi(argv[1]) <= 59 && atoi(argv[1]) >= 0)
+     ||(atoi(argv[2]) <= 59 && atoi(argv[2]) >= 0))
+     {
+        alarm_time.tm_hour = atoi(argv[0]);
+        alarm_time.tm_min = atoi(argv[1]);
+        alarm_time.tm_min = atoi(argv[2]);
+
+        RTC::alarm(&alarmFunction, alarm_time);
+     }
+}
+void cmd_sat(int argc, char** argv){
+    if((atoi(argv[0]) <= 50 && atoi(argv[0]) >= 0)
+     ||(atoi(argv[1]) <= 50 && atoi(argv[1]) >= 0))
+     {
+        if(xSemaphoreTake(ParamMutex, 200)){
+        
+            TL = atoi(argv[0]);
+            TM = atoi(argv[1]);
+            xSemaphoreGive(ParamMutex);
+        }
+     }
 }
 //#endif //notdef
