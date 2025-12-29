@@ -248,8 +248,7 @@ void cmd_readparams  (int, char** ) {
 +--------------------------------------------------------------------------*/
 void cmd_modmonperiod(int argc, char **argv) {
     MUTEX_TAKE(ParamMutex)
-    // max period is once per day.
-    if(validateInput(atoi(argv[1]), 0, 86400, (int*)&PMON))
+    if(validateInput(atoi(argv[1]), 0, 99, (int*)&PMON))
         printf("Value out of range, clamping to %d", PMON);
 
     if(PMON == 0)
@@ -264,7 +263,7 @@ void cmd_modmonperiod(int argc, char **argv) {
 void cmd_modtimealarm(int argc, char **argv) {
     MUTEX_TAKE(ParamMutex)
     // We definitely do not want to ring for several days. Limiting to 10 minutes.
-    if(validateInput(atoi(argv[1]), 0, 600, (int*)&TALA))
+    if(validateInput(atoi(argv[1]), 0, 60, (int*)&TALA))
         printf("Value out of range, clamping to %d", TALA);
     MUTEX_RETURN(ParamMutex)
 }
@@ -312,9 +311,9 @@ void cmd_setalarmtemp(int argc, char **argv) {
     MUTEX_TAKE(ParamMutex)
     int err = 0;
     err |= validateInput(
-        atoi(argv[1]), -99, 99, (int*)&TL);
+        atoi(argv[1]), 0, 50, (int*)&TL);
     err |= validateInput(
-        atoi(argv[2]), -99, 99, (int*)&TM);
+        atoi(argv[2]), 0, 50, (int*)&TM);
     if(err) {
         printf("Input out of range, clamping to :\n");
         printf("low limit% 2d, high limit% 2d",
