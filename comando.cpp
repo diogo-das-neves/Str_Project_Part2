@@ -29,14 +29,14 @@ extern SemaphoreHandle_t RecordMutex;
 extern SemaphoreHandle_t ParamMutex;
 extern SemaphoreHandle_t StateMutex;
 
-extern QueueHandle_t xQueue2;
+extern QueueHandle_t xTemperatureQueue;
 
 extern Record maxtemp;
 extern Record mintemp;
-extern volatile int TL;
-extern volatile int TM;
-extern volatile int PMON;
-extern volatile int TALA;
+extern volatile int low_threshold_TL;
+extern volatile int high_threshold_TH;
+extern volatile int monitoring_period_PMON;
+extern volatile int alarm_duration_TALA;
 extern volatile bool alarm_clock;
 extern volatile bool temp_alarm;
 
@@ -166,7 +166,7 @@ void cmd_setclock(int argc, char** argv){
 void cmd_readtemp(int argc, char **argv) {
     xTaskNotify(xTask_temp, 0,eNoAction);
     float sensor_read = 0;
-    if(xQueueReceive(xQueue2, &sensor_read, 100) == pdPASS) {
+    if(xQueueReceive(xTemperatureQueue, &sensor_read, 100) == pdPASS) {
         printf("Temperature:% 2.1f", sensor_read);
     }
     else{
@@ -227,8 +227,8 @@ void cmd_clearminmax(int argc, char **argv) {
 +--------------------------------------------------------------------------*/
 void cmd_readparams  (int, char** ) {
     MUTEX_TAKE(ParamMutex)
-    printf("Monitoring period (PMON) : %d\n", PMON);
-    printf("Alarm duration (TALA) : %d", TALA);
+    printf("Monitoring period (PMON) : %d\n", monitoring_period_PMON);
+    printf("Alarm duration (TALA) : %d", alarm_duration_TALA);
     MUTEX_RETURN(ParamMutex)
 }
 
@@ -237,10 +237,10 @@ void cmd_readparams  (int, char** ) {
 +--------------------------------------------------------------------------*/
 void cmd_modmonperiod(int argc, char **argv) {
     MUTEX_TAKE(ParamMutex)
-    if(validateInput(atoi(argv[1]), 0, 99, (int*)&PMON))
-        printf("Value out of range, clamping to %d", PMON);
+    if(validateInput(atoi(argv[1]), 0, 99, (int*)&monitoring_period_PMON))
+        printf("Value out of range, clamping to %d", monitoring_period_PMON);
 
-    if(PMON == 0)
+    if(monitoring_period_PMON == 0)
         printf("\nPeriodic monitoring disabled");
     else xTaskNotify(xTask_temp, 0,eNoAction);
     MUTEX_RETURN(ParamMutex)
@@ -252,8 +252,8 @@ void cmd_modmonperiod(int argc, char **argv) {
 void cmd_modtimealarm(int argc, char **argv) {
     MUTEX_TAKE(ParamMutex)
     // We definitely do not want to ring for several days. Limiting to 10 minutes.
-    if(validateInput(atoi(argv[1]), 0, 60, (int*)&TALA))
-        printf("Value out of range, clamping to %d", TALA);
+    if(validateInput(atoi(argv[1]), 0, 60, (int*)&alarm_duration_TALA))
+        printf("Value out of range, clamping to %d", alarm_duration_TALA);
     MUTEX_RETURN(ParamMutex)
 }
 
@@ -265,7 +265,7 @@ void cmd_readalarminfo(int argc, char **argv) {
     printf("alarm clock set time: %02d:%02d:%02d\n",
            alarm_time.tm_hour, alarm_time.tm_min, alarm_time.tm_sec);
     printf("temperature thresholds: min% 2d max% 2d\n",
-           TL, TM);
+           low_threshold_TL, high_threshold_TH);
     printf("temperature alarm: %s\n", temp_alarm? "ON": "OFF");
     printf("alarm clock:       %s", alarm_clock? "ON": "OFF");
     MUTEX_RETURN(ParamMutex)
@@ -288,7 +288,7 @@ void cmd_setalarmclock(int argc, char **argv) {
         printf("Input out of range, clamping to %02d:%02d:%02d",
                alarm_time.tm_hour, alarm_time.tm_min, alarm_time.tm_sec);
     }
-    RTC::alarm(&alarmFunction, alarm_time); // TODO - I think this also sets it for a specific sdate. Needs to be fixed if that is true.
+    RTC::alarm(&alarmFunction, alarm_time); 
 
     MUTEX_RETURN(ParamMutex)
 }
@@ -300,13 +300,13 @@ void cmd_setalarmtemp(int argc, char **argv) {
     MUTEX_TAKE(ParamMutex)
     int err = 0;
     err |= validateInput(
-        atoi(argv[1]), 0, 50, (int*)&TL);
+        atoi(argv[1]), 0, 50, (int*)&low_threshold_TL);
     err |= validateInput(
-        atoi(argv[2]), 0, 50, (int*)&TM);
+        atoi(argv[2]), 0, 50, (int*)&high_threshold_TH);
     if(err) {
         printf("Input out of range, clamping to :\n");
         printf("low limit% 2d, high limit% 2d",
-               TL, TM);
+               low_threshold_TL, high_threshold_TH);
     }
     MUTEX_RETURN(ParamMutex)
 }

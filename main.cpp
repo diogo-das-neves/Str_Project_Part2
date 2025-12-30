@@ -13,10 +13,10 @@
 #include "MMA7660.h"
 
 
-volatile int TL = 10;
-volatile int TM = 25;
-volatile int PMON = 5;
-volatile int TALA = 10;
+volatile int low_threshold_TL = 10;
+volatile int high_threshold_TH = 25;
+volatile int monitoring_period_PMON = 5;
+volatile int alarm_duration_TALA = 10;
 
 SemaphoreHandle_t AlarmMutex;
 SemaphoreHandle_t ClockMutex;
@@ -45,7 +45,7 @@ PwmOut spkr(p26); //buzzer
 
 
 QueueHandle_t xQueue;
-QueueHandle_t xQueue2;
+QueueHandle_t xTemperatureQueue;
 
 extern void monitor(void); //shared vars have to be protected
 extern float sensor_read;
@@ -76,35 +76,11 @@ char* my_fgets (char* ln, int sz, FILE* f)
   return ln;
 }
 
-void vTask1( void *pvParameters ) {
-int32_t lValueToSend;
-BaseType_t xStatus;
-    led1 = 1;
-    for( ;; ) {
-        lValueToSend = 201;
-        xStatus = xQueueSend( xQueue, &lValueToSend, 0 );
-        monitor(); //does not return
-        led1 = !led1;
-    }
+void vTask_Serial( void *pvParameters ) {
+    monitor(); //does not return
 }
 
-void vTask2( void *pvParameters ) {
-int32_t lReceivedValue;
-BaseType_t xStatus;
-
-    led2 = 1;
-    printf("Hello from mbed -- FreeRTOS / cmd\n");
-    for( ;; ) {
-//        vTaskDelay( 1000 );
-        xStatus = xQueueReceive( xQueue, &lReceivedValue, 1000 );
-        if( xStatus == pdPASS ) {
-            printf( "Received = %d", lReceivedValue );
-        }
-        led2 = !led2;
-    }
-}
-
-void vTask_MCU(void *pvParameters){
+void vTask_BubbleLevel(void *pvParameters){
     BaseType_t xStatus;
     float x = 0;
     float y = 0;
@@ -163,14 +139,14 @@ void vTask_temp(void *pvParameters){
     float sensor_read;
     sensor.open();
     for(;;){
-        if(PMON > 0){
+        if(monitoring_period_PMON > 0){
             sensor_read = sensor.temp();
-            xStatus = xQueueSend(xQueue2, &sensor_read, 0);
-            vTaskDelay(pdMS_TO_TICKS(PMON*1000));//5 secs
+            xStatus = xQueueSend(xTemperatureQueue, &sensor_read, 0);
+            vTaskDelay(pdMS_TO_TICKS(monitoring_period_PMON*1000));//5 secs
         }else {
             ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
             sensor_read = sensor.temp();
-            xStatus = xQueueSend(xQueue2, &sensor_read, 0);
+            xStatus = xQueueSend(xTemperatureQueue, &sensor_read, 0);
             }
 
     }
@@ -182,7 +158,7 @@ void vTask_LCD(void *pvParameters){
     time_t t;
     tm tm;
     for(;;){
-        xStatus = xQueueReceive(xQueue2, &sensor_read, 1000);
+        xStatus = xQueueReceive(xTemperatureQueue, &sensor_read, 1000);
         if(xStatus==pdPASS){
             if(xSemaphoreTake(ClockMutex,100))
                 time(&t);
@@ -203,7 +179,7 @@ void vTask_records(void *pvParameters){
     time_t t;
     tm tm;
     for(;;){
-        xStatus = xQueueReceive(xQueue2, &sensor_read, 1000);
+        xStatus = xQueueReceive(xTemperatureQueue, &sensor_read, 1000);
         if(xStatus==pdPASS){
             if(sensor_read > maxtemp.temp){
                 if(xSemaphoreTake(ClockMutex,200)){
@@ -235,7 +211,7 @@ void vTask_Temp_Light_Alarm(void *pvParamaters){
     BaseType_t xStatus;
     float sensor_read;
     for(;;){
-        xStatus = xQueueReceive(xQueue2, &sensor_read, 1000);
+        xStatus = xQueueReceive(xTemperatureQueue, &sensor_read, 1000);
         if (sensor_read >= 25){
             r = 0.8;
             g = 1;
@@ -278,16 +254,16 @@ int main( void ) {
     /* --- APPLICATION TASKS CAN BE CREATED HERE --- */
 
     xQueue = xQueueCreate( 4, sizeof( int32_t ) );
-    xQueue2 = xQueueCreate( 4, sizeof( float ) );
+    xTemperatureQueue = xQueueCreate( 4, sizeof( float ) );
 
-    //xTaskCreate( vTask1, "Task 1", 2*configMINIMAL_STACK_SIZE, NULL, 1, NULL );
+    //xTaskCreate( vTask_Serial, "SerialComms Task", 2*configMINIMAL_STACK_SIZE, NULL, 1, NULL );
     xTaskCreate( vTask_Alarm, "Alarm Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, &xTask_Alarm );
     xTaskCreate( vTask_temp, "Temp Task", 2*configMINIMAL_STACK_SIZE, NULL, 1, &xTask_temp );
     xTaskCreate( vTask_LCD, "LCD Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, NULL );
     xTaskCreate( vTask_Temp_Light_Alarm, "TempAlarm Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, NULL );
     xTaskCreate( vTask_records, "TempRecords Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, NULL );
 
-    //xTaskCreate( vTask_MCU, "LCD Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, NULL );
+    //xTaskCreate( vTask_BubbleLevel, "Bubble Level Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, NULL );
     /* Start the created tasks running. */
     vTaskStartScheduler();
 

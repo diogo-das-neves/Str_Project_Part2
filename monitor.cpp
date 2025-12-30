@@ -76,6 +76,7 @@ struct  command_d {
 
 #define NCOMMANDS  (sizeof(commands)/sizeof(struct command_d))
 #define ARGVECSIZE 4
+// must be 4 - 1 command and 3 arguments
 #define MAX_LINE   50
 
 
