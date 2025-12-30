@@ -87,10 +87,11 @@ void vTask_BubbleLevel(void *pvParameters){
     for(;;){
         x = (x + MMA.x() * 16.0)/2.0;
         y = (y -(MMA.y() * 16.0))/2.0;
-        lcd.fillcircle(x+63, y+15, 3, 1); //draw bubble
-        lcd.circle(63, 15, 8, 1);
+        lcd.fillcircle(x+111, y+15, 3, 1); //draw bubble
+        lcd.circle(111, 15, 8, 1);
+        lcd.line(95,0,95,31,1); // draw margin line
         vTaskDelay(pdMS_TO_TICKS(100));
-        lcd.fillcircle(x+63, y+15, 3, 0); //erase bubble
+        lcd.fillcircle(x+111, y+15, 3, 0); //erase bubble
     }
 }
 void vTask_Alarm(void *pvParameters){
