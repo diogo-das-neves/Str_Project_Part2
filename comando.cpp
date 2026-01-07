@@ -88,7 +88,7 @@ void cmd_readdatetime(int argc, char** argv){
     time(&systime_unix); // get system time
     localtime_r(&systime_unix, &systime_struct); // convert to struct form
     printf("\n%02d/%02d/%02d %02d:%02d:%02d", // using this format as per specification
-        systime_struct.tm_mday, systime_struct.tm_mon, systime_struct.tm_year,
+        systime_struct.tm_mday, systime_struct.tm_mon + 1, systime_struct.tm_year + 1900,
         systime_struct.tm_hour, systime_struct.tm_min, systime_struct.tm_sec);
     MUTEX_RETURN(ClockMutex)
 }
@@ -120,12 +120,12 @@ void cmd_setdate(int argc,char**argv){
     err |= validateInput(
         atoi(argv[1]), 1, 31, &systime_struct.tm_mday);
     err |= validateInput(
-        atoi(argv[2]), 1, 12, &systime_struct.tm_mon);
+        atoi(argv[2]) - 1, 0, 11, &systime_struct.tm_mon);
     err |= validateInput(
-        atoi(argv[3]), 1970, 2037, &systime_struct.tm_year);
+        atoi(argv[3]) - 1900, 70, 137, &systime_struct.tm_year);
     if(err) {
         printf("\nInput out of range, clamping to %02d/%02d/%02d",
-               systime_struct.tm_mday, systime_struct.tm_mon, systime_struct.tm_year);
+               systime_struct.tm_mday, systime_struct.tm_mon + 1, systime_struct.tm_year + 1900);
     }
 
     systime_unix = mktime(&systime_struct);
@@ -183,16 +183,16 @@ void cmd_readminmax(int argc, char **argv) {
     printf("\nMin temp:% 2d C at %02d/%02d/%02d %02d:%02d:%02d\n",
         mintemp.temp, 
         mintemp.timestamp.tm_mday,
-        mintemp.timestamp.tm_mon,
-        mintemp.timestamp.tm_year,
+        mintemp.timestamp.tm_mon + 1,
+        mintemp.timestamp.tm_year + 1900,
         mintemp.timestamp.tm_hour, 
         mintemp.timestamp.tm_min, 
         mintemp.timestamp.tm_sec);
     printf("Max temp:% 2d C at %02d/%02d/%02d %02d:%02d:%02d",
         maxtemp.temp, 
         maxtemp.timestamp.tm_mday, 
-        maxtemp.timestamp.tm_mon, 
-        maxtemp.timestamp.tm_year,
+        maxtemp.timestamp.tm_mon + 1, 
+        maxtemp.timestamp.tm_year + 1900,
         maxtemp.timestamp.tm_hour, 
         maxtemp.timestamp.tm_min, 
         maxtemp.timestamp.tm_sec);
@@ -205,16 +205,16 @@ void cmd_readminmax(int argc, char **argv) {
 void cmd_clearminmax(int argc, char **argv) {
     MUTEX_TAKE(RecordMutex)
     mintemp.temp = 99;
-    mintemp.timestamp.tm_year = 1970;
-    mintemp.timestamp.tm_mon = 1;
+    mintemp.timestamp.tm_year = 70;
+    mintemp.timestamp.tm_mon = 0;
     mintemp.timestamp.tm_mday = 1;
     mintemp.timestamp.tm_hour = 0;
     mintemp.timestamp.tm_min = 0;
     mintemp.timestamp.tm_sec = 0;
 
     maxtemp.temp = -99;
-    maxtemp.timestamp.tm_year = 1970;
-    maxtemp.timestamp.tm_mon = 1;
+    maxtemp.timestamp.tm_year = 70;
+    maxtemp.timestamp.tm_mon = 0;
     maxtemp.timestamp.tm_mday = 1;
     maxtemp.timestamp.tm_hour = 0;
     maxtemp.timestamp.tm_min = 0;
