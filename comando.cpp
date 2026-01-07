@@ -155,9 +155,11 @@ void cmd_setclock(int argc, char** argv){
 | Function: cmd_readtemp - read temperature (ondemand measurement)
 +--------------------------------------------------------------------------*/
 void cmd_readtemp(int argc, char **argv) {
-    xSemaphoreGive(xMeasureTempSemaphore);
     float sensor_read;
 
+    xSemaphoreGive(xMeasureTempSemaphore); // request on demand measurement
+    taskYIELD();
+    
     MUTEX_TAKE(TempMutex)
     sensor_read = temperature; // cache temperature
     MUTEX_RETURN(TempMutex)

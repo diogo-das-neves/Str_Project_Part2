@@ -87,7 +87,6 @@ void vTask_Serial( void *pvParameters ) {
 }
 
 void vTask_BubbleLevel(void *pvParameters){
-    BaseType_t xStatus;
     float x = 0;
     float y = 0;
     for(;;){
@@ -101,48 +100,43 @@ void vTask_BubbleLevel(void *pvParameters){
     }
 }
 void vTask_Alarm(void *pvParameters){
-    BaseType_t xStatus;
 
     for(;;){
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-        if(xSemaphoreTake(AlarmMutex, 200)){
-            if(alarm){
-                spkr.period(Period);
-                spkr = DutyCycle;
-            } else {
-                spkr = 0.0f;
-            }
-            xSemaphoreGive(AlarmMutex);
+        MUTEX_TAKE(AlarmMutex)
+        if(alarm){
+            spkr.period(Period);
+            spkr = DutyCycle;
+        } else {
+            spkr = 0.0f;
         }
-    vTaskDelay(pdMS_TO_TICKS(100));
+        MUTEX_RETURN(AlarmMutex)
+        vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
 void vTask_Pot1(void *pvParameters){
-    BaseType_t xStatus;
     float f;
     for(;;){
         f = pot1.read()*5000;
         if(f <= 0){f = 0.01;}
-        if(xSemaphoreTake(AlarmMutex, 100))
-            Period = 1/f;
-            xSemaphoreGive(AlarmMutex);
+        MUTEX_TAKE(AlarmMutex)
+        Period = 1/f;
+        MUTEX_RETURN(AlarmMutex)
         vTaskDelay(pdMS_TO_TICKS(200));
 
-        }
     }
+}
+
 void vTask_Pot2(void *pvParameters){
-    BaseType_t xStatus;
     for(;;){
-        if(xSemaphoreTake(AlarmMutex, 200))
-            DutyCycle = pot2.read();
-            xSemaphoreGive(AlarmMutex);
+        MUTEX_TAKE(AlarmMutex)
+        DutyCycle = pot2.read();
+        MUTEX_RETURN(AlarmMutex)
         vTaskDelay(pdMS_TO_TICKS(200));
-
-        }
     }
+}
     
 void vTask_temp(void *pvParameters){
-    BaseType_t xStatus;
     sensor.open();
     for(;;){
         if(xSemaphoreTake(xMeasureTempSemaphore, portMAX_DELAY)) {
@@ -158,7 +152,6 @@ static void TempTimerCallback(TimerHandle_t xTimer) {
 
 
 void vTask_LCD(void *pvParameters){
-    BaseType_t xStatus;
     time_t t;
     tm tm;
     float sensor_read;
@@ -186,7 +179,6 @@ void vTask_LCD(void *pvParameters){
 }
 
 void vTask_records(void *pvParameters){
-    BaseType_t xStatus;
     float sensor_read;
     time_t t;
     tm tm;
@@ -218,11 +210,12 @@ void vTask_records(void *pvParameters){
             mintemp.timestamp.tm_mon = tm.tm_mon;
             mintemp.timestamp.tm_year = tm.tm_year;
         }
+        vTaskDelay(pdMS_TO_TICKS(500));
+        //this catches even the fastest periodic monitoring
     }
 }
 
 void vTask_Temp_Light_Alarm(void *pvParamaters){
-    BaseType_t xStatus;
     float sensor_read;
     for(;;){
         MUTEX_TAKE(TempMutex)
@@ -250,6 +243,8 @@ void vTask_Temp_Light_Alarm(void *pvParamaters){
             g = 0.8;
             b = 1;
         }
+
+        vTaskDelay(pdMS_TO_TICKS(33)); // 30 Hz
     }
 }
 
@@ -266,6 +261,10 @@ int main( void ) {
     mintemp.temp = 50;
     set_time(0);
     pc.baud(115200);
+
+    r.period(0.00005); // some people (including me) get headaches from PWM frequencies
+    g.period(0.00005); // under a few kHz. Setting to 20kHz. Kat
+    b.period(0.00005);
 
     AlarmMutex = xSemaphoreCreateMutex();
     ClockMutex = xSemaphoreCreateMutex();
@@ -290,11 +289,11 @@ int main( void ) {
          TempTimerCallback);
 
     xTaskCreate( vTask_Serial, "SerialComms Task", 2*configMINIMAL_STACK_SIZE, NULL, 1, NULL );
-    //xTaskCreate( vTask_Alarm, "Alarm Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, &xTask_Alarm );
+    xTaskCreate( vTask_Alarm, "Alarm Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, &xTask_Alarm );
     xTaskCreate( vTask_temp, "Temp Task", 2*configMINIMAL_STACK_SIZE, NULL, 5, &xTask_temp );
     xTaskCreate( vTask_LCD, "LCD Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, NULL );
-    //xTaskCreate( vTask_Temp_Light_Alarm, "TempAlarm Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, NULL );
-    //xTaskCreate( vTask_records, "TempRecords Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, NULL );
+    xTaskCreate( vTask_Temp_Light_Alarm, "TempAlarm Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, NULL );
+    xTaskCreate( vTask_records, "TempRecords Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, NULL );
 
     //xTaskCreate( vTask_BubbleLevel, "Bubble Level Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, NULL );
     /* Start the created tasks running. */
