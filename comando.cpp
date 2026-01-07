@@ -166,7 +166,7 @@ void cmd_setclock(int argc, char** argv){
 void cmd_readtemp(int argc, char **argv) {
     xTaskNotify(xTask_temp, 0,eNoAction);
     float sensor_read = 0;
-    if(xQueueReceive(xTemperatureQueue, &sensor_read, 100) == pdPASS) {
+    if(xQueueReceive(xTemperatureQueue, &sensor_read, 1000) == pdPASS) {
         printf("\nTemperature:% 2.1f", sensor_read);
     }
     else{
@@ -316,7 +316,7 @@ void cmd_setalarmtemp(int argc, char **argv) {
 +--------------------------------------------------------------------------*/
 void cmd_alarmclocken(int argc, char **argv) {
     MUTEX_TAKE(ParamMutex)
-    if(strtol(argv[1], NULL, 10)) {
+    if(atoi(argv[1])) {
         alarm_clock = 1;
         printf("\nAlarm clock enabled.");
     }
@@ -332,7 +332,7 @@ void cmd_alarmclocken(int argc, char **argv) {
 +--------------------------------------------------------------------------*/
 void cmd_tempalarmen(int argc, char **argv) {
     MUTEX_TAKE(ParamMutex)
-    if(strtol(argv[1], NULL, 10)) {
+    if(atoi(argv[1])) {
         temp_alarm = 1;
         printf("\nTemperature alarm enabled.");
     }
@@ -360,7 +360,7 @@ void cmd_readtaskstate(int argc, char **argv) {
 +--------------------------------------------------------------------------*/
 void cmd_bubblelevelen(int argc, char **argv) {
     MUTEX_TAKE(StateMutex)
-    if(strtol(argv[1], NULL, 10)) {
+    if(atoi(argv[1])) {
         bubble_level_bl = 1;
         printf("\nBubble Level enabled.");
     }
@@ -376,7 +376,7 @@ void cmd_bubblelevelen(int argc, char **argv) {
 +--------------------------------------------------------------------------*/
 void cmd_hitbiten(int argc, char **argv) {
     MUTEX_TAKE(StateMutex)
-    if(strtol(argv[1], NULL, 10)) {
+    if(atoi(argv[1])) {
         hit_bit_hb = 1;
         printf("\nHit Bit enabled.");
     }
@@ -392,7 +392,7 @@ void cmd_hitbiten(int argc, char **argv) {
 +--------------------------------------------------------------------------*/
 void cmd_configsounden(int argc, char **argv) {
     MUTEX_TAKE(StateMutex)
-    if(strtol(argv[1], NULL, 10)) {
+    if(atoi(argv[1])) {
         config_sound_cs = 1;
         printf("\nConfig Sound enabled.");
     }

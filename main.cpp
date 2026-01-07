@@ -143,12 +143,11 @@ void vTask_temp(void *pvParameters){
         if(monitoring_period_PMON > 0){
             sensor_read = sensor.temp();
             xStatus = xQueueSend(xTemperatureQueue, &sensor_read, 0);
-            vTaskDelay(pdMS_TO_TICKS(monitoring_period_PMON*1000));//5 secs
-        }else {
-            ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+        }
+        if(ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(monitoring_period_PMON*1000))) {
             sensor_read = sensor.temp();
             xStatus = xQueueSend(xTemperatureQueue, &sensor_read, 0);
-            }
+        }
 
     }
 }
@@ -251,6 +250,9 @@ int main( void ) {
 
     AlarmMutex = xSemaphoreCreateMutex();
     ClockMutex = xSemaphoreCreateMutex();
+    RecordMutex = xSemaphoreCreateMutex();
+    StateMutex = xSemaphoreCreateMutex();
+    ParamMutex = xSemaphoreCreateMutex();
 //    printf("Hello from mbed -- FreeRTOS / cmd\n");
 
     /* --- APPLICATION TASKS CAN BE CREATED HERE --- */
