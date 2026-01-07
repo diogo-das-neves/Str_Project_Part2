@@ -160,20 +160,21 @@ void vTask_LCD(void *pvParameters){
     tm tm;
     for(;;){
         xStatus = xQueueReceive(xTemperatureQueue, &sensor_read, 1000);
-        if(xStatus==pdPASS){
-            if(xSemaphoreTake(ClockMutex,100))
-                time(&t);
-                localtime_r(&t, &tm);
-                lcd.locate(0,0); //3
-                lcd.printf("%d:%d:%d",tm.tm_hour,tm.tm_min,tm.tm_sec);
-                xSemaphoreGive(ClockMutex);
-            lcd.locate(0,11); //13
-            lcd.printf("A: C T");
-            lcd.locate(0,22); //26
-            lcd.printf("T(C) = %.3f\n", sensor_read);
+        if(xSemaphoreTake(ClockMutex,100)){
+            time(&t);
+            xSemaphoreGive(ClockMutex);
         }
+        localtime_r(&t, &tm);
+        lcd.locate(0,0); //3
+        //lcd.fillrect(0,0,94,32,0); // clear framebuffer
+        lcd.printf("%02d:%02d:%02d",tm.tm_hour,tm.tm_min,tm.tm_sec);
+        lcd.locate(0,11); //13
+        lcd.printf("A: C T");
+        lcd.locate(0,22); //26
+        lcd.printf("T(C) =%7.3f\n", sensor_read);
     }
 }
+
 void vTask_records(void *pvParameters){
     BaseType_t xStatus;
     float sensor_read;
@@ -257,7 +258,7 @@ int main( void ) {
     xQueue = xQueueCreate( 4, sizeof( int32_t ) );
     xTemperatureQueue = xQueueCreate( 4, sizeof( float ) );
 
-    //xTaskCreate( vTask_Serial, "SerialComms Task", 2*configMINIMAL_STACK_SIZE, NULL, 1, NULL );
+    xTaskCreate( vTask_Serial, "SerialComms Task", 2*configMINIMAL_STACK_SIZE, NULL, 1, NULL );
     xTaskCreate( vTask_Alarm, "Alarm Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, &xTask_Alarm );
     xTaskCreate( vTask_temp, "Temp Task", 2*configMINIMAL_STACK_SIZE, NULL, 1, &xTask_temp );
     xTaskCreate( vTask_LCD, "LCD Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, NULL );
