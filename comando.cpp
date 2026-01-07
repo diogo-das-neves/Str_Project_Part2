@@ -87,7 +87,7 @@ void cmd_readdatetime(int argc, char** argv){
     tm systime_struct; time_t systime_unix;
     time(&systime_unix); // get system time
     localtime_r(&systime_unix, &systime_struct); // convert to struct form
-    printf("%02d/%02d/%02d %02d:%02d:%02d", // using this format as per specification
+    printf("\n%02d/%02d/%02d %02d:%02d:%02d", // using this format as per specification
         systime_struct.tm_mday, systime_struct.tm_mon, systime_struct.tm_year,
         systime_struct.tm_hour, systime_struct.tm_min, systime_struct.tm_sec);
     MUTEX_RETURN(ClockMutex)
@@ -101,7 +101,7 @@ void cmd_readclock(int argc, char **argv) {
     tm systime_struct; time_t systime_unix;
     time(&systime_unix);
     localtime_r(&systime_unix, &systime_struct);
-    printf("%02d:%02d:%02d", 
+    printf("\n%02d:%02d:%02d", 
         systime_struct.tm_hour, systime_struct.tm_min, systime_struct.tm_sec);
     MUTEX_RETURN(ClockMutex)
 }
@@ -124,7 +124,7 @@ void cmd_setdate(int argc,char**argv){
     err |= validateInput(
         atoi(argv[3]), 1970, 2037, &systime_struct.tm_year);
     if(err) {
-        printf("Input out of range, clamping to %02d/%02d/%02d",
+        printf("\nInput out of range, clamping to %02d/%02d/%02d",
                systime_struct.tm_mday, systime_struct.tm_mon, systime_struct.tm_year);
     }
 
@@ -151,7 +151,7 @@ void cmd_setclock(int argc, char** argv){
     err |= validateInput(
         atoi(argv[3]), 0, 59, &systime_struct.tm_sec);
     if(err) {
-        printf("Input out of range, clamping to %02d:%02d:%02d",
+        printf("\nInput out of range, clamping to %02d:%02d:%02d",
                systime_struct.tm_hour, systime_struct.tm_min, systime_struct.tm_sec);
     }
 
@@ -167,10 +167,10 @@ void cmd_readtemp(int argc, char **argv) {
     xTaskNotify(xTask_temp, 0,eNoAction);
     float sensor_read = 0;
     if(xQueueReceive(xTemperatureQueue, &sensor_read, 100) == pdPASS) {
-        printf("Temperature:% 2.1f", sensor_read);
+        printf("\nTemperature:% 2.1f", sensor_read);
     }
     else{
-        printf("Failed to read temperature");
+        printf("\nFailed to read temperature");
     }
     
 }
@@ -180,7 +180,7 @@ void cmd_readtemp(int argc, char **argv) {
 +--------------------------------------------------------------------------*/
 void cmd_readminmax(int argc, char **argv) {
     MUTEX_TAKE(RecordMutex)
-    printf("Min temp:% 2d C at %02d/%02d/%02d %02d:%02d:%02d\n",
+    printf("\nMin temp:% 2d C at %02d/%02d/%02d %02d:%02d:%02d\n",
         mintemp.temp, 
         mintemp.timestamp.tm_mday,
         mintemp.timestamp.tm_mon,
@@ -227,7 +227,7 @@ void cmd_clearminmax(int argc, char **argv) {
 +--------------------------------------------------------------------------*/
 void cmd_readparams  (int, char** ) {
     MUTEX_TAKE(ParamMutex)
-    printf("Monitoring period (PMON) : %d\n", monitoring_period_PMON);
+    printf("\nMonitoring period (PMON) : %d\n", monitoring_period_PMON);
     printf("Alarm duration (TALA) : %d", alarm_duration_TALA);
     MUTEX_RETURN(ParamMutex)
 }
@@ -238,7 +238,7 @@ void cmd_readparams  (int, char** ) {
 void cmd_modmonperiod(int argc, char **argv) {
     MUTEX_TAKE(ParamMutex)
     if(validateInput(atoi(argv[1]), 0, 99, (int*)&monitoring_period_PMON))
-        printf("Value out of range, clamping to %d", monitoring_period_PMON);
+        printf("\nValue out of range, clamping to %d", monitoring_period_PMON);
 
     if(monitoring_period_PMON == 0)
         printf("\nPeriodic monitoring disabled");
@@ -253,7 +253,7 @@ void cmd_modtimealarm(int argc, char **argv) {
     MUTEX_TAKE(ParamMutex)
     // We definitely do not want to ring for several days. Limiting to 10 minutes.
     if(validateInput(atoi(argv[1]), 0, 60, (int*)&alarm_duration_TALA))
-        printf("Value out of range, clamping to %d", alarm_duration_TALA);
+        printf("\nValue out of range, clamping to %d", alarm_duration_TALA);
     MUTEX_RETURN(ParamMutex)
 }
 
@@ -262,7 +262,7 @@ void cmd_modtimealarm(int argc, char **argv) {
 +--------------------------------------------------------------------------*/
 void cmd_readalarminfo(int argc, char **argv) {
     MUTEX_TAKE(ParamMutex)
-    printf("alarm clock set time: %02d:%02d:%02d\n",
+    printf("\nalarm clock set time: %02d:%02d:%02d\n",
            alarm_time.tm_hour, alarm_time.tm_min, alarm_time.tm_sec);
     printf("temperature thresholds: min% 2d max% 2d\n",
            low_threshold_TL, high_threshold_TH);
@@ -285,7 +285,7 @@ void cmd_setalarmclock(int argc, char **argv) {
     err |= validateInput(
         (int)strtol(argv[3], NULL, 10), 0, 59, &alarm_time.tm_sec);
     if(err) {
-        printf("Input out of range, clamping to %02d:%02d:%02d",
+        printf("\nInput out of range, clamping to %02d:%02d:%02d",
                alarm_time.tm_hour, alarm_time.tm_min, alarm_time.tm_sec);
     }
     RTC::alarm(&alarmFunction, alarm_time); 
@@ -304,7 +304,7 @@ void cmd_setalarmtemp(int argc, char **argv) {
     err |= validateInput(
         atoi(argv[2]), 0, 50, (int*)&high_threshold_TH);
     if(err) {
-        printf("Input out of range, clamping to :\n");
+        printf("\nInput out of range, clamping to :\n");
         printf("low limit% 2d, high limit% 2d",
                low_threshold_TL, high_threshold_TH);
     }
@@ -318,11 +318,11 @@ void cmd_alarmclocken(int argc, char **argv) {
     MUTEX_TAKE(ParamMutex)
     if(strtol(argv[1], NULL, 10)) {
         alarm_clock = 1;
-        printf("Alarm clock enabled.");
+        printf("\nAlarm clock enabled.");
     }
     else {
         alarm_clock = 0;
-        printf("Alarm clock disabled.");
+        printf("\nAlarm clock disabled.");
     }
     MUTEX_RETURN(ParamMutex)
 }
@@ -334,11 +334,11 @@ void cmd_tempalarmen(int argc, char **argv) {
     MUTEX_TAKE(ParamMutex)
     if(strtol(argv[1], NULL, 10)) {
         temp_alarm = 1;
-        printf("Temperature alarm enabled.");
+        printf("\nTemperature alarm enabled.");
     }
     else {
         temp_alarm = 0;
-        printf("Temperature alarm disabled.");
+        printf("\nTemperature alarm disabled.");
     }
     MUTEX_RETURN(ParamMutex)
 }
@@ -348,7 +348,7 @@ void cmd_tempalarmen(int argc, char **argv) {
 +--------------------------------------------------------------------------*/
 void cmd_readtaskstate(int argc, char **argv) {
     MUTEX_TAKE(StateMutex)
-    printf("Bubble Level %s\nHit Bit %s\nConfig Sound %s",
+    printf("\nBubble Level %s\nHit Bit %s\nConfig Sound %s",
            bubble_level_bl? "ON":"OFF",
            hit_bit_hb? "ON":"OFF",
            config_sound_cs? "ON":"OFF");
@@ -362,11 +362,11 @@ void cmd_bubblelevelen(int argc, char **argv) {
     MUTEX_TAKE(StateMutex)
     if(strtol(argv[1], NULL, 10)) {
         bubble_level_bl = 1;
-        printf("Bubble Level enabled.");
+        printf("\nBubble Level enabled.");
     }
     else {
         bubble_level_bl = 0;
-        printf("Bubble Level disabled.");
+        printf("\nBubble Level disabled.");
     }
     MUTEX_RETURN(StateMutex)
 }
@@ -378,11 +378,11 @@ void cmd_hitbiten(int argc, char **argv) {
     MUTEX_TAKE(StateMutex)
     if(strtol(argv[1], NULL, 10)) {
         hit_bit_hb = 1;
-        printf("Hit Bit enabled.");
+        printf("\nHit Bit enabled.");
     }
     else {
         hit_bit_hb = 0;
-        printf("Hit Bit disabled.");
+        printf("\nHit Bit disabled.");
     }
     MUTEX_RETURN(StateMutex)
 }
@@ -394,11 +394,11 @@ void cmd_configsounden(int argc, char **argv) {
     MUTEX_TAKE(StateMutex)
     if(strtol(argv[1], NULL, 10)) {
         config_sound_cs = 1;
-        printf("Config Sound enabled.");
+        printf("\nConfig Sound enabled.");
     }
     else {
         config_sound_cs = 0;
-        printf("Config Sound disabled.");
+        printf("\nConfig Sound disabled.");
     }
     MUTEX_RETURN(StateMutex)
 }

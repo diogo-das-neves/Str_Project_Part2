@@ -128,10 +128,10 @@ void monitor (void)
                 if ( (argc - 1) == commands[i].arguments )
                     commands[i].cmd_fnct (argc, argv);
                 else
-                    printf("Wrong number of arguments");
+                    printf("\nWrong number of arguments");
             }
             else
-                printf("Invalid command");
+                printf("\nInvalid command");
         } /* if my_getline */
   } /* forever */
 }
@@ -157,7 +157,7 @@ void cmd_test(int argc, char **argv) {
     int i;
 
     for (i = 0; i < argc; i++)
-        printf("argv[%d] = %s\n", i, argv[i]);
+        printf("\nargv[%d] = %s\n", i, argv[i]);
 }
 
 //#endif //notdef
