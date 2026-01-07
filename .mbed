@@ -1,0 +1,5 @@
+ROOT=.
+DEVICE_ID[/home/studio/workspace/str_project_part2]=101026f8385a13b15fba28d55a8fba5517e7
+DEVICE_TYPE[/home/studio/workspace/str_project_part2]=connected
+TARGET=LPC1768
+TARGET_CODE=1010
