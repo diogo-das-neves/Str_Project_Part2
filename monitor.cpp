@@ -157,7 +157,7 @@ void cmd_test(int argc, char **argv) {
     int i;
 
     for (i = 0; i < argc; i++)
-        printf("\nargv[%d] = %s\n", i, argv[i]);
+        printf("\nargv[%d] = %s", i, argv[i]);
 }
 
 //#endif //notdef

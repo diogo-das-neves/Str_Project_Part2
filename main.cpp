@@ -6,6 +6,7 @@
 #include "queue.h"
 #include "semphr.h"
 #include "extras.h"
+#include "timers.h"
 
 #include "LM75B.h"
 #include "C12832.h"
@@ -27,6 +28,8 @@ SemaphoreHandle_t StateMutex;
 TaskHandle_t xTask_temp;
 TaskHandle_t xTask_Alarm;
 
+TimerHandle_t SensorTimer;
+
 AnalogIn pot1(p19);
 AnalogIn pot2(p20);
 
@@ -45,7 +48,10 @@ PwmOut spkr(p26); //buzzer
 
 
 QueueHandle_t xQueue;
-QueueHandle_t xTemperatureQueue;
+
+SemaphoreHandle_t xMeasureTempSemaphore;
+SemaphoreHandle_t TempMutex;
+volatile float temperature; 
 
 extern void monitor(void); //shared vars have to be protected
 extern float sensor_read;
@@ -137,32 +143,34 @@ void vTask_Pot2(void *pvParameters){
     
 void vTask_temp(void *pvParameters){
     BaseType_t xStatus;
-    float sensor_read;
     sensor.open();
     for(;;){
-        if(monitoring_period_PMON > 0){
-            sensor_read = sensor.temp();
-            xStatus = xQueueSend(xTemperatureQueue, &sensor_read, 0);
+        if(xSemaphoreTake(xMeasureTempSemaphore, portMAX_DELAY)) {
+            MUTEX_TAKE(TempMutex)
+            temperature = sensor.temp();
+            MUTEX_RETURN(TempMutex)
         }
-        if(ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(monitoring_period_PMON*1000))) {
-            sensor_read = sensor.temp();
-            xStatus = xQueueSend(xTemperatureQueue, &sensor_read, 0);
-        }
-
     }
 }
+static void TempTimerCallback(TimerHandle_t xTimer) {
+    xSemaphoreGive(xMeasureTempSemaphore);
+}
+
 
 void vTask_LCD(void *pvParameters){
     BaseType_t xStatus;
-    float sensor_read;
     time_t t;
     tm tm;
+    float sensor_read;
     for(;;){
-        xStatus = xQueueReceive(xTemperatureQueue, &sensor_read, 1000);
-        if(xSemaphoreTake(ClockMutex,100)){
-            time(&t);
-            xSemaphoreGive(ClockMutex);
-        }
+        MUTEX_TAKE(ClockMutex)
+        time(&t);
+        MUTEX_RETURN(ClockMutex)
+
+        MUTEX_TAKE(TempMutex)
+        sensor_read = temperature; // cache temperature
+        MUTEX_RETURN(TempMutex)
+
         localtime_r(&t, &tm);
         lcd.locate(0,0); //3
         //lcd.fillrect(0,0,94,32,0); // clear framebuffer
@@ -170,7 +178,10 @@ void vTask_LCD(void *pvParameters){
         lcd.locate(0,11); //13
         lcd.printf("A: C T");
         lcd.locate(0,22); //26
+
         lcd.printf("T(C) =%7.3f\n", sensor_read);
+
+        vTaskDelay(pdMS_TO_TICKS(33)); //30Hz LCD
     }
 }
 
@@ -180,39 +191,44 @@ void vTask_records(void *pvParameters){
     time_t t;
     tm tm;
     for(;;){
-        xStatus = xQueueReceive(xTemperatureQueue, &sensor_read, 1000);
-        if(xStatus==pdPASS){
-            if(sensor_read > maxtemp.temp){
-                if(xSemaphoreTake(ClockMutex,200)){
-                    time(&t);
-                    localtime_r(&t, &tm);
-                    maxtemp.temp = sensor_read;
-                    maxtemp.timestamp.tm_sec = tm.tm_sec;
-                    maxtemp.timestamp.tm_min = tm.tm_min;
-                    maxtemp.timestamp.tm_hour = tm.tm_hour;
-                    xSemaphoreGive(ClockMutex);
-                    }
-            }
-            if(sensor_read < mintemp.temp){
-                if(xSemaphoreTake(ClockMutex,200)){
-                    time(&t);
-                    localtime_r(&t, &tm);
-                    mintemp.temp = sensor_read;
-                    mintemp.timestamp.tm_sec = tm.tm_sec;
-                    mintemp.timestamp.tm_min = tm.tm_min;
-                    mintemp.timestamp.tm_hour = tm.tm_hour;
-                    xSemaphoreGive(ClockMutex);
-                    }
-            }
-            
+        MUTEX_TAKE(TempMutex)
+        sensor_read = temperature; // cache temperature
+        MUTEX_RETURN(TempMutex)
+
+        MUTEX_TAKE(ClockMutex)
+        time(&t);
+        MUTEX_RETURN(ClockMutex)
+        localtime_r(&t, &tm);
+
+        if(sensor_read > maxtemp.temp){
+            maxtemp.temp = sensor_read;
+            maxtemp.timestamp.tm_sec = tm.tm_sec;
+            maxtemp.timestamp.tm_min = tm.tm_min;
+            maxtemp.timestamp.tm_hour = tm.tm_hour;
+            maxtemp.timestamp.tm_mday = tm.tm_mday;
+            maxtemp.timestamp.tm_mon = tm.tm_mon;
+            maxtemp.timestamp.tm_year = tm.tm_year;
+        }
+        if(sensor_read < mintemp.temp){
+            mintemp.temp = sensor_read;
+            mintemp.timestamp.tm_sec = tm.tm_sec;
+            mintemp.timestamp.tm_min = tm.tm_min;
+            mintemp.timestamp.tm_hour = tm.tm_hour;
+            mintemp.timestamp.tm_mday = tm.tm_mday;
+            mintemp.timestamp.tm_mon = tm.tm_mon;
+            mintemp.timestamp.tm_year = tm.tm_year;
         }
     }
 }
+
 void vTask_Temp_Light_Alarm(void *pvParamaters){
     BaseType_t xStatus;
     float sensor_read;
     for(;;){
-        xStatus = xQueueReceive(xTemperatureQueue, &sensor_read, 1000);
+        MUTEX_TAKE(TempMutex)
+        sensor_read = temperature; // cache temperature
+        MUTEX_RETURN(TempMutex)
+
         if (sensor_read >= 25){
             r = 0.8;
             g = 1;
@@ -236,10 +252,13 @@ void vTask_Temp_Light_Alarm(void *pvParamaters){
         }
     }
 }
+
 void alarmFunction(void){
     if(alarm)
         xTaskNotify(xTask_Alarm, 0,eNoAction);
 }
+
+
 int main( void ) {
     /* Perform any hardware setup necessary. */
 //    prvSetupHardware();
@@ -253,22 +272,33 @@ int main( void ) {
     RecordMutex = xSemaphoreCreateMutex();
     StateMutex = xSemaphoreCreateMutex();
     ParamMutex = xSemaphoreCreateMutex();
+    TempMutex = xSemaphoreCreateMutex();
 //    printf("Hello from mbed -- FreeRTOS / cmd\n");
 
     /* --- APPLICATION TASKS CAN BE CREATED HERE --- */
 
     xQueue = xQueueCreate( 4, sizeof( int32_t ) );
-    xTemperatureQueue = xQueueCreate( 4, sizeof( float ) );
+    vSemaphoreCreateBinary(xMeasureTempSemaphore);
+    xSemaphoreGive(xMeasureTempSemaphore);
+
+
+    SensorTimer = xTimerCreate(
+        "SensorTimer",
+         pdMS_TO_TICKS(1000 * monitoring_period_PMON),
+         pdTRUE,
+         NULL,
+         TempTimerCallback);
 
     xTaskCreate( vTask_Serial, "SerialComms Task", 2*configMINIMAL_STACK_SIZE, NULL, 1, NULL );
-    xTaskCreate( vTask_Alarm, "Alarm Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, &xTask_Alarm );
-    xTaskCreate( vTask_temp, "Temp Task", 2*configMINIMAL_STACK_SIZE, NULL, 1, &xTask_temp );
+    //xTaskCreate( vTask_Alarm, "Alarm Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, &xTask_Alarm );
+    xTaskCreate( vTask_temp, "Temp Task", 2*configMINIMAL_STACK_SIZE, NULL, 5, &xTask_temp );
     xTaskCreate( vTask_LCD, "LCD Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, NULL );
-    xTaskCreate( vTask_Temp_Light_Alarm, "TempAlarm Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, NULL );
-    xTaskCreate( vTask_records, "TempRecords Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, NULL );
+    //xTaskCreate( vTask_Temp_Light_Alarm, "TempAlarm Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, NULL );
+    //xTaskCreate( vTask_records, "TempRecords Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, NULL );
 
     //xTaskCreate( vTask_BubbleLevel, "Bubble Level Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, NULL );
     /* Start the created tasks running. */
+    xTimerStart(SensorTimer, 0);
     vTaskStartScheduler();
 
     /* Execution will only reach here if there was insufficient heap to

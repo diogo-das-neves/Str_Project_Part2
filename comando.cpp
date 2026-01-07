@@ -23,13 +23,18 @@
 #include "projdefs.h"
 #include "task.h"
 #include "queue.h"
+#include "timers.h"
+
+extern TimerHandle_t SensorTimer;
 
 extern SemaphoreHandle_t ClockMutex;
 extern SemaphoreHandle_t RecordMutex;
 extern SemaphoreHandle_t ParamMutex;
 extern SemaphoreHandle_t StateMutex;
 
-extern QueueHandle_t xTemperatureQueue;
+extern SemaphoreHandle_t xMeasureTempSemaphore;
+extern SemaphoreHandle_t TempMutex;
+extern volatile float temperature; 
 
 extern Record maxtemp;
 extern Record mintemp;
@@ -44,7 +49,6 @@ bool bubble_level_bl = 1;
 bool hit_bit_hb = 0;
 bool config_sound_cs = 0;
 
-extern TaskHandle_t xTask_temp;
 extern void alarmFunction(void);
 tm alarm_time = RTC::getDefaultTM();
 
@@ -65,19 +69,6 @@ int validateInput(int input, int min, int max, int* output) {
         return 0; 
     }   
 }
-
-
-/*-------------------------------------------------------------------------+
-| Helper macros: avoid checking the mutex by hand every time
-+--------------------------------------------------------------------------*/ 
-#define MUTEX_TAKE(MUTEX) \
-    if(xSemaphoreTake(MUTEX, 100)) {
-
-#define MUTEX_RETURN(MUTEX) \
-        xSemaphoreGive(MUTEX);\
-    } else {\
-        printf("Failed to acquire %s\n", #MUTEX);\
-    }
 
 /*-------------------------------------------------------------------------+
 | Function: cmd_readdatetime - print DD/MM/YYYY hh:mm:ss
@@ -164,15 +155,14 @@ void cmd_setclock(int argc, char** argv){
 | Function: cmd_readtemp - read temperature (ondemand measurement)
 +--------------------------------------------------------------------------*/
 void cmd_readtemp(int argc, char **argv) {
-    xTaskNotify(xTask_temp, 0,eNoAction);
-    float sensor_read = 0;
-    if(xQueueReceive(xTemperatureQueue, &sensor_read, 1000) == pdPASS) {
-        printf("\nTemperature:% 2.1f", sensor_read);
-    }
-    else{
-        printf("\nFailed to read temperature");
-    }
-    
+    xSemaphoreGive(xMeasureTempSemaphore);
+    float sensor_read;
+
+    MUTEX_TAKE(TempMutex)
+    sensor_read = temperature; // cache temperature
+    MUTEX_RETURN(TempMutex)
+
+    printf("\nTemperature:% 2.1f", sensor_read);   
 }
 
 /*-------------------------------------------------------------------------+
@@ -240,9 +230,17 @@ void cmd_modmonperiod(int argc, char **argv) {
     if(validateInput(atoi(argv[1]), 0, 99, (int*)&monitoring_period_PMON))
         printf("\nValue out of range, clamping to %d", monitoring_period_PMON);
 
-    if(monitoring_period_PMON == 0)
+    if(monitoring_period_PMON == 0) {
         printf("\nPeriodic monitoring disabled");
-    else xTaskNotify(xTask_temp, 0,eNoAction);
+        
+        xTimerStop(SensorTimer, 1000);
+    } else {
+        xTimerChangePeriod(SensorTimer,
+            pdMS_TO_TICKS(1000 * monitoring_period_PMON),
+            1000);
+        xTimerStart(SensorTimer, 1000); // start / reset timer in case it is off
+    }
+
     MUTEX_RETURN(ParamMutex)
 }
 
