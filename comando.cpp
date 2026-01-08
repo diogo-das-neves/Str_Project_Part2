@@ -239,7 +239,6 @@ void cmd_modmonperiod(int argc, char **argv) {
 
     if(monitoring_period_PMON == 0) {
         printf("\nPeriodic monitoring disabled");
-        
         xTimerStop(SensorTimer, 1000);
     } else {
         xTimerChangePeriod(SensorTimer,
@@ -326,10 +325,11 @@ void cmd_alarmclocken(int argc, char **argv) {
         alarm_clock = 1;
         printf("\nAlarm clock enabled.");
     }
-    else {
+    else { 
+        vTaskSuspend(xTask_AlarmClock);
         alarm_clock = 0;
         printf("\nAlarm clock disabled.");
-        vTaskSuspend(xTask_AlarmClock);
+       
     }
     MUTEX_RETURN(ParamMutex)
 }
