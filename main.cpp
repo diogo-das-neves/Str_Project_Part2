@@ -111,7 +111,11 @@ void vTask_AlarmTemp(void *pvParameters){
         spkr.period(Period);
         spkr = DutyCycle;
         MUTEX_RETURN(AlarmMutex)
-        vTaskDelay(pdMS_TO_TICKS(100));
+        
+        vTaskDelay(pdMS_TO_TICKS(alarm_duration_TALA * 1000));
+        MUTEX_TAKE(AlarmMutex)
+        spkr = 0.0f;
+        MUTEX_RETURN(AlarmMutex)
     }
 }
 void vTask_AlarmClock(void *pvParameters){
@@ -122,7 +126,11 @@ void vTask_AlarmClock(void *pvParameters){
         spkr.period(Period);
         spkr = DutyCycle;
         MUTEX_RETURN(AlarmMutex)
-        vTaskDelay(pdMS_TO_TICKS(100));
+
+        vTaskDelay(pdMS_TO_TICKS(alarm_duration_TALA * 1000));
+        MUTEX_TAKE(AlarmMutex)
+        spkr = 0.0f;
+        MUTEX_RETURN(AlarmMutex)
     }
 }
 void vTask_Pot1(void *pvParameters){
@@ -237,17 +245,13 @@ void vTask_Temp_Light_Alarm(void *pvParamaters){
             r = 0.8;
             g = 1;
             b = 1;
-            if(xSemaphoreTake(AlarmMutex, 500))
-                xTaskNotify(xTask_AlarmTemp, 0,eNoAction);
-            xSemaphoreGive(AlarmMutex);
+            xTaskNotify(xTask_AlarmTemp, 0,eNoAction);
         }
         else if(sensor_read <= 23){
             r = 1;
             g = 1;
             b = 0.8;
-            if(xSemaphoreTake(AlarmMutex, 500))
-                xTaskNotify(xTask_AlarmTemp, 0,eNoAction);
-            xSemaphoreGive(AlarmMutex);
+            xTaskNotify(xTask_AlarmTemp, 0,eNoAction);
         }
         else{
             r = 1;
