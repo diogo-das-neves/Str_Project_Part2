@@ -22,4 +22,5 @@ typedef struct {
         printf("Failed to acquire %s\n", #MUTEX);\
     }
 
+
 #endif // EXTRAS_H

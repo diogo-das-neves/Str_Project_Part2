@@ -14,6 +14,9 @@
 #include "MMA7660.h"
 
 
+#include "led.h"
+
+
 volatile int low_threshold_TL = 10;
 volatile int high_threshold_TH = 25;
 volatile int monitoring_period_PMON = 5;
@@ -36,10 +39,6 @@ AnalogIn pot2(p20);
 DigitalOut led1(LED1);
 DigitalOut led2(LED2);
 Serial pc(USBTX, USBRX);
-
-PwmOut r(p23);
-PwmOut g(p24);
-PwmOut b(p25);
 
 LM75B sensor(p28,p27); // temp sensor
 C12832 lcd(p5, p7, p6, p8, p11); // lcd
@@ -165,8 +164,8 @@ void vTask_LCD(void *pvParameters){
         MUTEX_RETURN(TempMutex)
 
         localtime_r(&t, &tm);
-        lcd.locate(0,0); //3
         //lcd.fillrect(0,0,94,32,0); // clear framebuffer
+        lcd.locate(0,0); //3
         lcd.printf("%02d:%02d:%02d",tm.tm_hour,tm.tm_min,tm.tm_sec);
         lcd.locate(0,11); //13
         lcd.printf("A: C T");
@@ -218,30 +217,27 @@ void vTask_records(void *pvParameters){
 void vTask_Temp_Light_Alarm(void *pvParamaters){
     float sensor_read;
     for(;;){
+        const float LED_BRIGHTNESS = 0.5;
         MUTEX_TAKE(TempMutex)
         sensor_read = temperature; // cache temperature
         MUTEX_RETURN(TempMutex)
 
-        if (sensor_read >= 25){
-            r = 0.8;
-            g = 1;
-            b = 1;
+        if (sensor_read >= (float)high_threshold_TH){
+            hsvLED(0.0, 1.0, LED_BRIGHTNESS);
             if(alarm && xSemaphoreTake(AlarmMutex, 500))
                 xTaskNotify(xTask_Alarm, 0,eNoAction);
             xSemaphoreGive(AlarmMutex);
         }
-        else if(sensor_read <= 23){
-            r = 1;
-            g = 1;
-            b = 0.8;
+        else if(sensor_read <= (float)low_threshold_TL){
+            hsvLED(240.0, 1.0, LED_BRIGHTNESS);
             if(alarm && xSemaphoreTake(AlarmMutex, 500))
                 xTaskNotify(xTask_Alarm, 0,eNoAction);
             xSemaphoreGive(AlarmMutex);
         }
         else{
-            r = 1;
-            g = 0.8;
-            b = 1;
+            float H = (1.0 - (sensor_read - (float)low_threshold_TL) / (float)(high_threshold_TH - low_threshold_TL)) * 240.0;
+
+            hsvLED(H, 1.0, LED_BRIGHTNESS);
         }
 
         vTaskDelay(pdMS_TO_TICKS(33)); // 30 Hz
@@ -262,9 +258,7 @@ int main( void ) {
     set_time(0);
     pc.baud(115200);
 
-    r.period(0.00005); // some people (including me) get headaches from PWM frequencies
-    g.period(0.00005); // under a few kHz. Setting to 20kHz. Kat
-    b.period(0.00005);
+    void initLED();
 
     AlarmMutex = xSemaphoreCreateMutex();
     ClockMutex = xSemaphoreCreateMutex();
