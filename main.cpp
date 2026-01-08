@@ -258,7 +258,7 @@ int main( void ) {
     set_time(0);
     pc.baud(115200);
 
-    void initLED();
+    initLED();
 
     AlarmMutex = xSemaphoreCreateMutex();
     ClockMutex = xSemaphoreCreateMutex();
