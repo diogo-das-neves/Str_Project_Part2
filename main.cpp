@@ -232,6 +232,7 @@ void vTask_records(void *pvParameters){
             mintemp.timestamp.tm_mon = tm.tm_mon;
             mintemp.timestamp.tm_year = tm.tm_year;
         }
+      
         vTaskDelay(pdMS_TO_TICKS(500));
         //this catches even the fastest periodic monitoring
     }
@@ -240,26 +241,27 @@ void vTask_records(void *pvParameters){
 void vTask_Temp_Light_Alarm(void *pvParamaters){
     float sensor_read;
     for(;;){
+        const float LED_BRIGHTNESS = 0.2;
         MUTEX_TAKE(TempMutex)
         sensor_read = temperature; // cache temperature
         MUTEX_RETURN(TempMutex)
 
-        if (sensor_read >= 25){
-            r = 0.8;
-            g = 1;
-            b = 1;
-            xTaskNotify(xTask_AlarmTemp, 0,eNoAction);
+        if (sensor_read >= (float)high_threshold_TH){
+            hsvLED(0.0, 1.0, LED_BRIGHTNESS);
+            if(alarm && xSemaphoreTake(AlarmMutex, 500))
+                xTaskNotify(xTask_AlarmTemp, 0,eNoAction);
+            xSemaphoreGive(AlarmMutex);
         }
-        else if(sensor_read <= 23){
-            r = 1;
-            g = 1;
-            b = 0.8;
-            xTaskNotify(xTask_AlarmTemp, 0,eNoAction);
+        else if(sensor_read <= (float)low_threshold_TL){
+            hsvLED(240.0, 1.0, LED_BRIGHTNESS);
+            if(alarm && xSemaphoreTake(AlarmMutex, 500))
+                xTaskNotify(xTask_AlarmTemp, 0,eNoAction);
+            xSemaphoreGive(AlarmMutex);
         }
         else{
-            r = 1;
-            g = 0.8;
-            b = 1;
+            float H = (1.0 - (sensor_read - (float)low_threshold_TL) / ((float)high_threshold_TH - (float)low_threshold_TL)) * 240.0;
+
+            hsvLED(H, 1.0, LED_BRIGHTNESS);
         }
 
         vTaskDelay(pdMS_TO_TICKS(33)); // 30 Hz
@@ -314,8 +316,6 @@ int main( void ) {
     xTaskCreate( vTask_records, "TempRecords Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, NULL);
     xTaskCreate( vTask_Pot1, "Pot1 Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, &xTask_Pot1);
     xTaskCreate( vTask_Pot2, "Pot2 Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, &xTask_Pot2);
-
-
     xTaskCreate( vTask_BubbleLevel, "Bubble Level Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, &xTask_Bubble );
     /* Start the created tasks running. */
     xTimerStart(SensorTimer, 0);
@@ -326,3 +326,4 @@ int main( void ) {
     for( ;; );
     return 0;
 }
+
