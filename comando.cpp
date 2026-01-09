@@ -25,6 +25,11 @@
 #include "queue.h"
 #include "timers.h"
 
+extern DigitalOut led1;
+extern DigitalOut led2;
+extern DigitalOut led3;
+extern DigitalOut led4;
+
 extern TimerHandle_t SensorTimer;
 
 extern TaskHandle_t xTask_Bubble;
@@ -33,6 +38,7 @@ extern TaskHandle_t xTask_Pot2;
 extern TaskHandle_t xTask_AlarmTemp;
 extern TaskHandle_t xTask_AlarmClock;
 extern TaskHandle_t xTask_TempLight;
+extern TaskHandle_t xTask_KillBitGame;
 
 extern SemaphoreHandle_t ClockMutex;
 extern SemaphoreHandle_t RecordMutex;
@@ -372,13 +378,13 @@ void cmd_bubblelevelen(int argc, char **argv) {
     MUTEX_TAKE(StateMutex)
     if(atoi(argv[1])) {
         bubble_level_bl = 1;
-        vTaskResume(xTask_BubbleLevel);
+        vTaskResume(xTask_Bubble);
         printf("\nBubble Level enabled.");
     }
     else {
         bubble_level_bl = 0;
         lcd.fillrect(95,0,127,31,0);
-        vTaskSuspend(xTask_BubbleLevel);
+        vTaskSuspend(xTask_Bubble);
         printf("\nBubble Level disabled.");
     }
     MUTEX_RETURN(StateMutex)
@@ -427,4 +433,5 @@ void cmd_configsounden(int argc, char **argv) {
 }
 
 //#endif //notdef
+
 
