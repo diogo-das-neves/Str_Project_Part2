@@ -27,6 +27,13 @@
 
 extern TimerHandle_t SensorTimer;
 
+extern TaskHandle_t xTask_Bubble;
+extern TaskHandle_t xTask_Pot1;
+extern TaskHandle_t xTask_Pot2;
+extern TaskHandle_t xTask_AlarmTemp;
+extern TaskHandle_t xTask_AlarmClock;
+extern TaskHandle_t xTask_TempLight;
+
 extern SemaphoreHandle_t ClockMutex;
 extern SemaphoreHandle_t RecordMutex;
 extern SemaphoreHandle_t ParamMutex;
@@ -164,7 +171,7 @@ void cmd_readtemp(int argc, char **argv) {
     sensor_read = temperature; // cache temperature
     MUTEX_RETURN(TempMutex)
 
-    printf("\nTemperature:% 2.1f", sensor_read);   
+    printf("\nTemperature:% 2.1f", sensor_read);
 }
 
 /*-------------------------------------------------------------------------+
@@ -173,20 +180,20 @@ void cmd_readtemp(int argc, char **argv) {
 void cmd_readminmax(int argc, char **argv) {
     MUTEX_TAKE(RecordMutex)
     printf("\nMin temp:% 2d C at %02d/%02d/%02d %02d:%02d:%02d\n",
-        mintemp.temp, 
+        mintemp.temp,
         mintemp.timestamp.tm_mday,
         mintemp.timestamp.tm_mon + 1,
         mintemp.timestamp.tm_year + 1900,
-        mintemp.timestamp.tm_hour, 
-        mintemp.timestamp.tm_min, 
+        mintemp.timestamp.tm_hour,
+        mintemp.timestamp.tm_min,
         mintemp.timestamp.tm_sec);
     printf("Max temp:% 2d C at %02d/%02d/%02d %02d:%02d:%02d",
-        maxtemp.temp, 
-        maxtemp.timestamp.tm_mday, 
-        maxtemp.timestamp.tm_mon + 1, 
+        maxtemp.temp,
+        maxtemp.timestamp.tm_mday,
+        maxtemp.timestamp.tm_mon + 1,
         maxtemp.timestamp.tm_year + 1900,
-        maxtemp.timestamp.tm_hour, 
-        maxtemp.timestamp.tm_min, 
+        maxtemp.timestamp.tm_hour,
+        maxtemp.timestamp.tm_min,
         maxtemp.timestamp.tm_sec);
     MUTEX_RETURN(RecordMutex)
 }
@@ -234,7 +241,7 @@ void cmd_modmonperiod(int argc, char **argv) {
 
     if(monitoring_period_PMON == 0) {
         printf("\nPeriodic monitoring disabled");
-        
+
         xTimerStop(SensorTimer, 1000);
     } else {
         xTimerChangePeriod(SensorTimer,
@@ -242,7 +249,6 @@ void cmd_modmonperiod(int argc, char **argv) {
             1000);
         xTimerStart(SensorTimer, 1000); // start / reset timer in case it is off
     }
-
     MUTEX_RETURN(ParamMutex)
 }
 
@@ -317,10 +323,12 @@ void cmd_setalarmtemp(int argc, char **argv) {
 void cmd_alarmclocken(int argc, char **argv) {
     MUTEX_TAKE(ParamMutex)
     if(atoi(argv[1])) {
+        vTaskResume(xTask_AlarmClock);
         alarm_clock = 1;
         printf("\nAlarm clock enabled.");
     }
-    else {
+    else { 
+        vTaskSuspend(xTask_AlarmClock);
         alarm_clock = 0;
         printf("\nAlarm clock disabled.");
     }
@@ -333,10 +341,12 @@ void cmd_alarmclocken(int argc, char **argv) {
 void cmd_tempalarmen(int argc, char **argv) {
     MUTEX_TAKE(ParamMutex)
     if(atoi(argv[1])) {
+        vTaskResume(xTask_AlarmTemp);
         temp_alarm = 1;
         printf("\nTemperature alarm enabled.");
     }
     else {
+        vTaskSuspend(xTask_AlarmTemp);
         temp_alarm = 0;
         printf("\nTemperature alarm disabled.");
     }
@@ -361,10 +371,12 @@ void cmd_readtaskstate(int argc, char **argv) {
 void cmd_bubblelevelen(int argc, char **argv) {
     MUTEX_TAKE(StateMutex)
     if(atoi(argv[1])) {
+        vTaskResume(xTask_Bubble);
         bubble_level_bl = 1;
         printf("\nBubble Level enabled.");
     }
     else {
+        vTaskSuspend(xTask_Bubble);
         bubble_level_bl = 0;
         printf("\nBubble Level disabled.");
     }
@@ -393,10 +405,14 @@ void cmd_hitbiten(int argc, char **argv) {
 void cmd_configsounden(int argc, char **argv) {
     MUTEX_TAKE(StateMutex)
     if(atoi(argv[1])) {
+        vTaskResume(xTask_Pot1);
+        vTaskResume(xTask_Pot2);
         config_sound_cs = 1;
         printf("\nConfig Sound enabled.");
     }
     else {
+        vTaskSuspend(xTask_Pot1);
+        vTaskSuspend(xTask_Pot2);
         config_sound_cs = 0;
         printf("\nConfig Sound disabled.");
     }
