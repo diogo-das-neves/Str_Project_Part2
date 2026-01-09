@@ -272,7 +272,38 @@ void alarmFunction(void){
     xTaskNotify(xTask_AlarmClock, 0,eNoAction);
 }
 
+void LEDS(int number) {
+  led4 = (number)&0x01;
+  led3 = (number >> 1) & 0x01;
+  led2 = (number >> 2) & 0x01;
+  led1 = (number >> 3) & 0x01;
+}
 
+void vTask_KillBitGame(void *pvParameters) {
+  unsigned int value = 0x12;
+  spkr.period(1.0 / 2000.0);
+  for (;;) {
+    // Handle Pushbutton XOR (Check if pb is a DigitalIn)
+    value = value ^ pb;
+    if (value == 0) {
+      // Alarm Sequence
+      for (int i = 0; i < 5; ++i) {
+        spkr = 0.5;
+        LEDS(0x0F);
+        vTaskDelay(pdMS_TO_TICKS(500)); // wait(.5)
+        LEDS(0);
+        spkr = 0.0;
+        vTaskDelay(pdMS_TO_TICKS(250)); // wait(.25)
+      }
+      value = 0x12; // Reset value
+    }
+    // Bitwise rotation logic
+    value = ((value & 0x01) << 3) | (value >> 1);
+    LEDS(value);
+    // Periodic delay
+    vTaskDelay(pdMS_TO_TICKS(250));
+  }
+}
 int main( void ) {
     /* Perform any hardware setup necessary. */
 //    prvSetupHardware();
@@ -317,6 +348,8 @@ int main( void ) {
     xTaskCreate( vTask_Pot1, "Pot1 Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, &xTask_Pot1);
     xTaskCreate( vTask_Pot2, "Pot2 Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, &xTask_Pot2);
     xTaskCreate( vTask_BubbleLevel, "Bubble Level Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, &xTask_Bubble );
+    xTaskCreate( vTask_KillBitGame, "KillBitGame", 2*configMINIMAL_STACK_SIZE, NULL, 8, &xTask_KillBitGame );
+    vTaskSuspend(xTask_KillBitGame);
     /* Start the created tasks running. */
     xTimerStart(SensorTimer, 0);
     vTaskStartScheduler();
@@ -326,4 +359,5 @@ int main( void ) {
     for( ;; );
     return 0;
 }
+
 
