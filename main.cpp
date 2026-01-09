@@ -217,7 +217,7 @@ void vTask_records(void *pvParameters){
 void vTask_Temp_Light_Alarm(void *pvParamaters){
     float sensor_read;
     for(;;){
-        const float LED_BRIGHTNESS = 0.5;
+        const float LED_BRIGHTNESS = 0.2;
         MUTEX_TAKE(TempMutex)
         sensor_read = temperature; // cache temperature
         MUTEX_RETURN(TempMutex)
@@ -235,7 +235,7 @@ void vTask_Temp_Light_Alarm(void *pvParamaters){
             xSemaphoreGive(AlarmMutex);
         }
         else{
-            float H = (1.0 - (sensor_read - (float)low_threshold_TL) / (float)(high_threshold_TH - low_threshold_TL)) * 240.0;
+            float H = (1.0 - (sensor_read - (float)low_threshold_TL) / ((float)high_threshold_TH - (float)low_threshold_TL)) * 240.0;
 
             hsvLED(H, 1.0, LED_BRIGHTNESS);
         }

@@ -47,6 +47,7 @@ void srgbLED(float r,float g,float b) {
 void hsvLED(float H, float S, float V) {
     float r,g,b;
     
+    while(H > 360.0) H = H-360.0;
     float max = V;
     float min = V*(1-S);
     float slope = (max - min) / 60.0;
