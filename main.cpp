@@ -20,6 +20,7 @@ volatile int monitoring_period_PMON = 5;
 volatile int alarm_duration_TALA = 10;
 volatile bool alarm_clock = 1;
 volatile bool temp_alarm = 1;
+
 SemaphoreHandle_t AlarmMutex;
 SemaphoreHandle_t ClockMutex;
 SemaphoreHandle_t RecordMutex;
@@ -27,6 +28,8 @@ SemaphoreHandle_t ParamMutex;
 SemaphoreHandle_t StateMutex;
 
 TaskHandle_t xTask_temp;
+TaskHandle_t xTask_TempLight;
+TaskHandle_t xTask_Records;
 TaskHandle_t xTask_AlarmClock;
 TaskHandle_t xTask_AlarmTemp;
 TaskHandle_t xTask_Bubble;
@@ -307,8 +310,8 @@ int main( void ) {
     xTaskCreate( vTask_AlarmTemp, "Alarm temp Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, &xTask_AlarmTemp );
     xTaskCreate( vTask_temp, "Temp Task", 2*configMINIMAL_STACK_SIZE, NULL, 5, &xTask_temp );
     xTaskCreate( vTask_LCD, "LCD Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, NULL );
-    xTaskCreate( vTask_Temp_Light_Alarm, "TempAlarm Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, NULL );
-    xTaskCreate( vTask_records, "TempRecords Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, NULL );
+    xTaskCreate( vTask_Temp_Light_Alarm, "TempAlarm Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, &xTask_TempLight );
+    xTaskCreate( vTask_records, "TempRecords Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, NULL);
     xTaskCreate( vTask_Pot1, "Pot1 Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, &xTask_Pot1);
     xTaskCreate( vTask_Pot2, "Pot2 Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, &xTask_Pot2);
 
