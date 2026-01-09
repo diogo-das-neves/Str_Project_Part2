@@ -35,6 +35,7 @@ TaskHandle_t xTask_AlarmTemp;
 TaskHandle_t xTask_Bubble;
 TaskHandle_t xTask_Pot1;
 TaskHandle_t xTask_Pot2;
+TaskHandle_t xTask_KillBitGame;
 
 
 
@@ -43,14 +44,17 @@ TimerHandle_t SensorTimer;
 AnalogIn pot1(p19);
 AnalogIn pot2(p20);
 
+
+
 DigitalOut led1(LED1);
 DigitalOut led2(LED2);
+DigitalOut led3(LED3);
+DigitalOut led4(LED4);
+DigitalIn pb(p14); // joystick
+
+RGBLed tempLed(p23, p24, p25);
+
 Serial pc(USBTX, USBRX);
-
-PwmOut r(p23);
-PwmOut g(p24);
-PwmOut b(p25);
-
 LM75B sensor(p28,p27); // temp sensor
 C12832 lcd(p5, p7, p6, p8, p11); // lcd
 MMA7660 MMA(p28, p27); // I2C accelerometer
@@ -359,5 +363,6 @@ int main( void ) {
     for( ;; );
     return 0;
 }
+
 
 
