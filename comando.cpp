@@ -31,6 +31,7 @@ extern TaskHandle_t xTask_Pot1;
 extern TaskHandle_t xTask_Pot2;
 extern TaskHandle_t xTask_AlarmTemp;
 extern TaskHandle_t xTask_AlarmClock;
+extern TaskHandle_t xTask_TempLight;
 
 extern SemaphoreHandle_t ClockMutex;
 extern SemaphoreHandle_t RecordMutex;
@@ -240,11 +241,14 @@ void cmd_modmonperiod(int argc, char **argv) {
     if(monitoring_period_PMON == 0) {
         printf("\nPeriodic monitoring disabled");
         xTimerStop(SensorTimer, 1000);
+        vTaskSuspend(xTask_TempLight);
     } else {
         xTimerChangePeriod(SensorTimer,
             pdMS_TO_TICKS(1000 * monitoring_period_PMON),
             1000);
         xTimerStart(SensorTimer, 1000); // start / reset timer in case it is off
+        vTaskResume(xTask_TempLight);
+
     }
 
     MUTEX_RETURN(ParamMutex)
