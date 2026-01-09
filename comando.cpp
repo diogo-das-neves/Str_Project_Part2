@@ -26,6 +26,7 @@
 #include "timers.h"
 
 extern TimerHandle_t SensorTimer;
+
 extern TaskHandle_t xTask_Bubble;
 extern TaskHandle_t xTask_Pot1;
 extern TaskHandle_t xTask_Pot2;
@@ -241,14 +242,11 @@ void cmd_modmonperiod(int argc, char **argv) {
     if(monitoring_period_PMON == 0) {
         printf("\nPeriodic monitoring disabled");
         xTimerStop(SensorTimer, 1000);
-        vTaskSuspend(xTask_TempLight);
     } else {
         xTimerChangePeriod(SensorTimer,
             pdMS_TO_TICKS(1000 * monitoring_period_PMON),
             1000);
         xTimerStart(SensorTimer, 1000); // start / reset timer in case it is off
-        vTaskResume(xTask_TempLight);
-
     }
 
     MUTEX_RETURN(ParamMutex)
@@ -333,7 +331,6 @@ void cmd_alarmclocken(int argc, char **argv) {
         vTaskSuspend(xTask_AlarmClock);
         alarm_clock = 0;
         printf("\nAlarm clock disabled.");
-       
     }
     MUTEX_RETURN(ParamMutex)
 }
@@ -374,13 +371,14 @@ void cmd_readtaskstate(int argc, char **argv) {
 void cmd_bubblelevelen(int argc, char **argv) {
     MUTEX_TAKE(StateMutex)
     if(atoi(argv[1])) {
-        vTaskResume(xTask_Bubble);
         bubble_level_bl = 1;
+        vTaskResume(xTask_BubbleLevel);
         printf("\nBubble Level enabled.");
     }
     else {
-        vTaskSuspend(xTask_Bubble);
         bubble_level_bl = 0;
+        lcd.fillrect(95,0,127,31,0);
+        vTaskSuspend(xTask_BubbleLevel);
         printf("\nBubble Level disabled.");
     }
     MUTEX_RETURN(StateMutex)
@@ -393,10 +391,16 @@ void cmd_hitbiten(int argc, char **argv) {
     MUTEX_TAKE(StateMutex)
     if(atoi(argv[1])) {
         hit_bit_hb = 1;
+        vTaskResume(xTask_KillBitGame);
         printf("\nHit Bit enabled.");
     }
     else {
         hit_bit_hb = 0;
+        led1=0x01;
+        led2=0x01;
+        led3=0x01;
+        led4=0x01;
+        vTaskSuspend(xTask_KillBitGame);
         printf("\nHit Bit disabled.");
     }
     MUTEX_RETURN(StateMutex)
@@ -423,3 +427,4 @@ void cmd_configsounden(int argc, char **argv) {
 }
 
 //#endif //notdef
+
