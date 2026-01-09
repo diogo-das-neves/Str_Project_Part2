@@ -12,6 +12,11 @@
 #include "FreeRTOS.h"
 #include "queue.h"
 
+#include "LM75B.h"
+#include "C12832.h"
+#include "RTC.h"
+#include "MMA7660.h"
+
 #include "mbed.h"
 #include "FreeRTOS.h"
 #include "semphr.h"
@@ -30,14 +35,25 @@
 
 extern TimerHandle_t SensorTimer;
 
+extern DigitalOut led1;
+extern DigitalOut led2;
+extern DigitalOut led3;
+extern DigitalOut led4;
+
 extern SemaphoreHandle_t ClockMutex;
 extern SemaphoreHandle_t RecordMutex;
 extern SemaphoreHandle_t ParamMutex;
 extern SemaphoreHandle_t StateMutex;
-
 extern SemaphoreHandle_t xMeasureTempSemaphore;
 extern SemaphoreHandle_t TempMutex;
+
+
 extern volatile float temperature; 
+
+extern TaskHandle_t xTask_KillBitGame;
+extern TaskHandle_t xTask_BubbleLevel;
+
+extern C12832 lcd;
 
 extern RecordManager recordLogger;
 extern Record maxtemp;
@@ -55,6 +71,7 @@ bool config_sound_cs = 0;
 
 extern void alarmFunction(void);
 tm alarm_time = RTC::getDefaultTM();
+
 
 /*-------------------------------------------------------------------------+
 | Helper function: validateInput - clamp input to allowed range
@@ -347,10 +364,13 @@ void cmd_bubblelevelen(int argc, char **argv) {
     MUTEX_TAKE(StateMutex)
     if(atoi(argv[1])) {
         bubble_level_bl = 1;
+        vTaskResume(xTask_BubbleLevel);
         printf("\nBubble Level enabled.");
     }
     else {
         bubble_level_bl = 0;
+        lcd.fillrect(95,0,127,31,0);
+        vTaskSuspend(xTask_BubbleLevel);
         printf("\nBubble Level disabled.");
     }
     MUTEX_RETURN(StateMutex)
@@ -363,10 +383,16 @@ void cmd_hitbiten(int argc, char **argv) {
     MUTEX_TAKE(StateMutex)
     if(atoi(argv[1])) {
         hit_bit_hb = 1;
+        vTaskResume(xTask_KillBitGame);
         printf("\nHit Bit enabled.");
     }
     else {
         hit_bit_hb = 0;
+        led1=0x01;
+        led2=0x01;
+        led3=0x01;
+        led4=0x01;
+        vTaskSuspend(xTask_KillBitGame);
         printf("\nHit Bit disabled.");
     }
     MUTEX_RETURN(StateMutex)

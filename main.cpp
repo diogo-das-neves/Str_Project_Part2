@@ -13,9 +13,11 @@
 #include "RTC.h"
 #include "MMA7660.h"
 
+
 #include "led.h"
 #include "RGBled.h"
 #include "RecordManager.h"
+
 
 volatile int low_threshold_TL = 10;
 volatile int high_threshold_TH = 25;
@@ -31,6 +33,7 @@ SemaphoreHandle_t StateMutex;
 TaskHandle_t xTask_temp;
 TaskHandle_t xTask_Alarm;
 TaskHandle_t xTask_KillBitGame;
+TaskHandle_t xTask_BubbleLevel;
 
 
 TimerHandle_t SensorTimer;
@@ -270,10 +273,10 @@ void alarmFunction(void){
 +--------------------------------------------------------------------------*/ 
 // Kill Bit helper function
 void LEDS(int number) {
-  led1 = (number)&0x01;
-  led2 = (number >> 1) & 0x01;
-  led3 = (number >> 2) & 0x01;
-  led4 = (number >> 3) & 0x01;
+  led4 = (number)&0x01;
+  led3 = (number >> 1) & 0x01;
+  led2 = (number >> 2) & 0x01;
+  led1 = (number >> 3) & 0x01;
 }
 
 void vTask_KillBitGame(void *pvParameters) {
@@ -303,7 +306,7 @@ void vTask_KillBitGame(void *pvParameters) {
 }
 /*-------------------------------------------------------------------------+
 | End of Kill Bit Game section
-+--------------------------------------------------------------------------*/ 
++--------------------------------------------------------------------------*/
 
 int main( void ) {
     /* Perform any hardware setup necessary. */
@@ -344,11 +347,10 @@ int main( void ) {
     xTaskCreate( vTask_Temp_Light_Alarm, "TempAlarm Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, NULL );
     xTaskCreate( vTask_records, "TempRecords Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, NULL );
 
-    xTaskCreate( vTask_KillBitGame, "KillBitGame", 2*configMINIMAL_STACK_SIZE, NULL, 2, &xTask_KillBitGame );
+    xTaskCreate( vTask_KillBitGame, "KillBitGame", 2*configMINIMAL_STACK_SIZE, NULL, 8, &xTask_KillBitGame );
     vTaskSuspend(xTask_KillBitGame);
 
-
-    //xTaskCreate( vTask_BubbleLevel, "Bubble Level Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, NULL );
+    xTaskCreate( vTask_BubbleLevel, "Bubble Level Task", 2*configMINIMAL_STACK_SIZE, NULL, 3, &xTask_BubbleLevel);
     /* Start the created tasks running. */
     xTimerStart(SensorTimer, 0);
     vTaskStartScheduler();
