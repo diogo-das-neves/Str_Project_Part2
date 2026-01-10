@@ -1,3 +1,4 @@
+#include "KillBit.h"
 #include "mbed.h"
 #include "FreeRTOS.h"
 #include "portmacro.h"
@@ -17,6 +18,7 @@
 #include "led.h"
 #include "RGBled.h"
 #include "RecordManager.h"
+#include "KillBit.h"
 
 
 volatile int low_threshold_TL = 10;
@@ -48,12 +50,7 @@ C12832 lcd(p5, p7, p6, p8, p11); // lcd
 MMA7660 MMA(p28, p27); // I2C accelerometer
 PwmOut spkr(p26); //buzzer
 
-
-DigitalOut led1(LED1);
-DigitalOut led2(LED2);
-DigitalOut led3(LED3);
-DigitalOut led4(LED4);
-DigitalIn pb(p14); // joystick
+KillBit bitGame(p14, LED1, LED2, LED3, LED4); 
 
 RGBLed tempLed(p23, p24, p25);
 
@@ -62,6 +59,8 @@ QueueHandle_t xQueue;
 SemaphoreHandle_t xMeasureTempSemaphore;
 SemaphoreHandle_t TempMutex;
 volatile float temperature; 
+
+extern bool hit_bit_hb;
 
 extern void monitor(void); //shared vars have to be protected
 extern float sensor_read;
@@ -271,37 +270,22 @@ void alarmFunction(void){
 /*-------------------------------------------------------------------------+
 | Start of Kill Bit Game section
 +--------------------------------------------------------------------------*/ 
-// Kill Bit helper function
-void LEDS(int number) {
-  led4 = (number)&0x01;
-  led3 = (number >> 1) & 0x01;
-  led2 = (number >> 2) & 0x01;
-  led1 = (number >> 3) & 0x01;
-}
 
 void vTask_KillBitGame(void *pvParameters) {
-  unsigned int value = 0x12;
+  unsigned int value = 0x08; // 1000, only LED1 is on
   spkr.period(1.0 / 2000.0);
   for (;;) {
-    // Handle Pushbutton XOR (Check if pb is a DigitalIn)
-    value = value ^ pb;
-    if (value == 0) {
-      // Alarm Sequence
-      for (int i = 0; i < 5; ++i) {
-        spkr = 0.5;
-        LEDS(0x0F);
-        vTaskDelay(pdMS_TO_TICKS(500)); // wait(.5)
-        LEDS(0);
-        spkr = 0.0;
-        vTaskDelay(pdMS_TO_TICKS(250)); // wait(.25)
-      }
-      value = 0x12; // Reset value
-    }
-    // Bitwise rotation logic
-    value = ((value & 0x01) << 3) | (value >> 1);
-    LEDS(value);
-    // Periodic delay
-    vTaskDelay(pdMS_TO_TICKS(250));
+        bool isEnabled = false;
+        MUTEX_TAKE(StateMutex)
+        isEnabled = hit_bit_hb;
+        MUTEX_RETURN(StateMutex)
+
+        if (isEnabled) {
+            bitGame.update();
+        } else {
+            bitGame.off();
+        }
+        vTaskDelay(pdMS_TO_TICKS(250));
   }
 }
 /*-------------------------------------------------------------------------+

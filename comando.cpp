@@ -31,14 +31,11 @@
 #include "timers.h"
 
 #include "RecordManager.h"
+#include "KillBit.h"
 
 
 extern TimerHandle_t SensorTimer;
 
-extern DigitalOut led1;
-extern DigitalOut led2;
-extern DigitalOut led3;
-extern DigitalOut led4;
 
 extern SemaphoreHandle_t ClockMutex;
 extern SemaphoreHandle_t RecordMutex;
@@ -71,6 +68,8 @@ bool config_sound_cs = 0;
 
 extern void alarmFunction(void);
 tm alarm_time = RTC::getDefaultTM();
+
+extern KillBit bitGame;
 
 
 /*-------------------------------------------------------------------------+
@@ -388,15 +387,15 @@ void cmd_hitbiten(int argc, char **argv) {
     }
     else {
         hit_bit_hb = 0;
-        led1=0x01;
-        led2=0x01;
-        led3=0x01;
-        led4=0x01;
+        bitGame.off();
         vTaskSuspend(xTask_KillBitGame);
         printf("\nHit Bit disabled.");
     }
     MUTEX_RETURN(StateMutex)
 }
+
+    
+
 
 /*-------------------------------------------------------------------------+
 | Function: cmd_configsounden - enable/disable Config Sound
