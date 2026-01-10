@@ -2,6 +2,11 @@
 #define KILLBIT_H
 
 #include "mbed.h"
+#include "FreeRTOS.h"
+#include "task.h"
+#include "queue.h"
+#include "extras.h"
+#include "timers.h"
 
 class KillBit {
 public:
@@ -20,3 +25,4 @@ private:
 };
 
 #endif
+

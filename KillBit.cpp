@@ -1,4 +1,5 @@
 #include "KillBit.h"
+#include "projdefs.h"
 
 KillBit::KillBit(PinName bPin, PinName l1, PinName l2, PinName l3, PinName l4) 
 : _btn(bPin), _led1(l1), _led2(l2), _led3(l3), _led4(l4){
@@ -14,27 +15,29 @@ void KillBit::reset() {
 }
 
 void KillBit::update() {
+    static bool buttonPressed = false;
    
-    if (_btn == 1) { 
+    if (_btn == 1 && !buttonPressed) { 
         if (_pattern & 0x01) _pattern &= ~0x01; // Kill bit at LED4
         else _pattern |= 0x01;                 // Add bit at LED4
-        
-
-        while(_btn == 1) { 
-            wait_ms(10); 
-        }
+        buttonPressed=true;
     }
 
-    if (_pattern == 0) {
+    else if (_btn == 0) {
+    buttonPressed = false;
+    }
+
+    if (_pattern == 0 ){
         _blinkWin();
         reset();
     }
 
-    // rotating bit
+    // Rotation Logic
     unsigned int rotating_bit = (_pattern & 0x01);
     _pattern = (rotating_bit << 3) | (_pattern >> 1);
-    
+
     _display();
+
 }
 
 void KillBit::_display() {
@@ -46,7 +49,10 @@ void KillBit::_display() {
 
 void KillBit::_blinkWin() {
     for(int i=0; i<3; i++) {
-        _led1 = _led2 = _led3 = _led4 = 1; wait(0.2);
-        _led1 = _led2 = _led3 = _led4 = 0; wait(0.2);
+        _led1 = _led2 = _led3 = _led4 = 1;
+        vTaskDelay(pdMS_TO_TICKS(200));
+        _led1 = _led2 = _led3 = _led4 = 0; 
+        vTaskDelay(pdMS_TO_TICKS(200));
     }
 }
+

@@ -275,17 +275,8 @@ void vTask_KillBitGame(void *pvParameters) {
   unsigned int value = 0x08; // 1000, only LED1 is on
   spkr.period(1.0 / 2000.0);
   for (;;) {
-        bool isEnabled = false;
-        MUTEX_TAKE(StateMutex)
-        isEnabled = hit_bit_hb;
-        MUTEX_RETURN(StateMutex)
-
-        if (isEnabled) {
-            bitGame.update();
-        } else {
-            bitGame.off();
-        }
-        vTaskDelay(pdMS_TO_TICKS(250));
+      bitGame.update();
+      vTaskDelay(pdMS_TO_TICKS(250));
   }
 }
 /*-------------------------------------------------------------------------+
@@ -344,3 +335,4 @@ int main( void ) {
     for( ;; );
     return 0;
 }
+

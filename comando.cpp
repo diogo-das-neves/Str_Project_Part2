@@ -382,13 +382,14 @@ void cmd_hitbiten(int argc, char **argv) {
     MUTEX_TAKE(StateMutex)
     if(atoi(argv[1])) {
         hit_bit_hb = 1;
+        bitGame.reset();
         vTaskResume(xTask_KillBitGame);
         printf("\nHit Bit enabled.");
     }
     else {
         hit_bit_hb = 0;
-        bitGame.off();
         vTaskSuspend(xTask_KillBitGame);
+        bitGame.off();
         printf("\nHit Bit disabled.");
     }
     MUTEX_RETURN(StateMutex)
@@ -414,3 +415,4 @@ void cmd_configsounden(int argc, char **argv) {
 }
 
 //#endif //notdef
+
