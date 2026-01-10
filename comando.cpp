@@ -13,6 +13,7 @@
 #include "queue.h"
 
 #include "mbed.h"
+#include "C12832.h"
 #include "FreeRTOS.h"
 #include "semphr.h"
 #include "extras.h"
@@ -24,8 +25,17 @@
 #include "task.h"
 #include "queue.h"
 #include "timers.h"
+#include "KillBit.h"
 
 extern TimerHandle_t SensorTimer;
+
+extern TaskHandle_t xTask_Bubble;
+extern TaskHandle_t xTask_Pot1;
+extern TaskHandle_t xTask_Pot2;
+extern TaskHandle_t xTask_AlarmTemp;
+extern TaskHandle_t xTask_AlarmClock;
+extern TaskHandle_t xTask_TempLight;
+extern TaskHandle_t xTask_KillBitGame;
 
 extern SemaphoreHandle_t ClockMutex;
 extern SemaphoreHandle_t RecordMutex;
@@ -49,9 +59,10 @@ bool bubble_level_bl = 1;
 bool hit_bit_hb = 0;
 bool config_sound_cs = 0;
 
+extern C12832 lcd;
 extern void alarmFunction(void);
 tm alarm_time = RTC::getDefaultTM();
-
+extern KillBit bitGame;
 /*-------------------------------------------------------------------------+
 | Helper function: validateInput - clamp input to allowed range
 +--------------------------------------------------------------------------*/ 
@@ -234,7 +245,6 @@ void cmd_modmonperiod(int argc, char **argv) {
 
     if(monitoring_period_PMON == 0) {
         printf("\nPeriodic monitoring disabled");
-        
         xTimerStop(SensorTimer, 1000);
     } else {
         xTimerChangePeriod(SensorTimer,
@@ -288,9 +298,10 @@ void cmd_setalarmclock(int argc, char **argv) {
         printf("\nInput out of range, clamping to %02d:%02d:%02d",
                alarm_time.tm_hour, alarm_time.tm_min, alarm_time.tm_sec);
     }
+    MUTEX_RETURN(ParamMutex)
+
     RTC::alarm(&alarmFunction, alarm_time); 
 
-    MUTEX_RETURN(ParamMutex)
 }
 
 /*-------------------------------------------------------------------------+
@@ -317,10 +328,12 @@ void cmd_setalarmtemp(int argc, char **argv) {
 void cmd_alarmclocken(int argc, char **argv) {
     MUTEX_TAKE(ParamMutex)
     if(atoi(argv[1])) {
+        vTaskResume(xTask_AlarmClock);
         alarm_clock = 1;
         printf("\nAlarm clock enabled.");
     }
-    else {
+    else { 
+        vTaskSuspend(xTask_AlarmClock);
         alarm_clock = 0;
         printf("\nAlarm clock disabled.");
     }
@@ -333,10 +346,12 @@ void cmd_alarmclocken(int argc, char **argv) {
 void cmd_tempalarmen(int argc, char **argv) {
     MUTEX_TAKE(ParamMutex)
     if(atoi(argv[1])) {
+        vTaskResume(xTask_AlarmTemp);
         temp_alarm = 1;
         printf("\nTemperature alarm enabled.");
     }
     else {
+        vTaskSuspend(xTask_AlarmTemp);
         temp_alarm = 0;
         printf("\nTemperature alarm disabled.");
     }
@@ -362,10 +377,13 @@ void cmd_bubblelevelen(int argc, char **argv) {
     MUTEX_TAKE(StateMutex)
     if(atoi(argv[1])) {
         bubble_level_bl = 1;
+        vTaskResume(xTask_Bubble);
         printf("\nBubble Level enabled.");
     }
     else {
         bubble_level_bl = 0;
+        lcd.fillrect(95,0,127,31,0);
+        vTaskSuspend(xTask_Bubble);
         printf("\nBubble Level disabled.");
     }
     MUTEX_RETURN(StateMutex)
@@ -378,10 +396,14 @@ void cmd_hitbiten(int argc, char **argv) {
     MUTEX_TAKE(StateMutex)
     if(atoi(argv[1])) {
         hit_bit_hb = 1;
+        bitGame.reset();
+        vTaskResume(xTask_KillBitGame);
         printf("\nHit Bit enabled.");
     }
     else {
         hit_bit_hb = 0;
+        bitGame.off();
+        vTaskSuspend(xTask_KillBitGame);
         printf("\nHit Bit disabled.");
     }
     MUTEX_RETURN(StateMutex)
@@ -393,10 +415,14 @@ void cmd_hitbiten(int argc, char **argv) {
 void cmd_configsounden(int argc, char **argv) {
     MUTEX_TAKE(StateMutex)
     if(atoi(argv[1])) {
+        vTaskResume(xTask_Pot1);
+        vTaskResume(xTask_Pot2);
         config_sound_cs = 1;
         printf("\nConfig Sound enabled.");
     }
     else {
+        vTaskSuspend(xTask_Pot1);
+        vTaskSuspend(xTask_Pot2);
         config_sound_cs = 0;
         printf("\nConfig Sound disabled.");
     }
@@ -404,3 +430,4 @@ void cmd_configsounden(int argc, char **argv) {
 }
 
 //#endif //notdef
+
