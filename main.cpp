@@ -34,6 +34,7 @@ TaskHandle_t xTask_temp;
 TaskHandle_t xTask_Alarm;
 TaskHandle_t xTask_KillBitGame;
 TaskHandle_t xTask_BubbleLevel;
+TaskHandle_t xTask_MCU;
 
 TimerHandle_t SensorTimer;
 
@@ -342,7 +343,7 @@ int main(void) {
   xTaskCreate(vTask_KillBitGame, "KillBitGame", 2 * configMINIMAL_STACK_SIZE,
               NULL, 2, &xTask_KillBitGame);
   vTaskSuspend(xTask_KillBitGame);
-  xTaskCreate(vTask_MCU, "MCU", 2 * configMINIMAL_STACK_SIZE, NULL, 1, NULL);
+  xTaskCreate(vTask_MCU, "MCU", 2 * configMINIMAL_STACK_SIZE, NULL, 1, &xTask_MCU);
   xTaskCreate(vTask_BubbleLevel, "Bubble Level Task",
               2 * configMINIMAL_STACK_SIZE, NULL, 2, &xTask_BubbleLevel);
   /* Start the created tasks running. */

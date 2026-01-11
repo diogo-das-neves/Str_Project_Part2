@@ -49,6 +49,7 @@ extern volatile float temperature;
 
 extern TaskHandle_t xTask_KillBitGame;
 extern TaskHandle_t xTask_BubbleLevel;
+extern TaskHandle_t xTask_MCU;
 
 extern C12832 lcd;
 
@@ -364,12 +365,14 @@ void cmd_bubblelevelen(int argc, char **argv) {
     if(atoi(argv[1])) {
         bubble_level_bl = 1;
         vTaskResume(xTask_BubbleLevel);
+        vTaskResume(xTask_MCU);
         printf("\nBubble Level enabled.");
     }
     else {
         bubble_level_bl = 0;
         lcd.fillrect(95,0,127,31,0);
         vTaskSuspend(xTask_BubbleLevel);
+        vTaskSuspend(xTask_MCU);
         printf("\nBubble Level disabled.");
     }
     MUTEX_RETURN(StateMutex)
