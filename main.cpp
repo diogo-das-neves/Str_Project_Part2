@@ -37,7 +37,7 @@ TaskHandle_t xTask_Bubble;
 TaskHandle_t xTask_Pot1;
 TaskHandle_t xTask_Pot2;
 TaskHandle_t xTask_KillBitGame;
-TaskHandle_t xTask_MCU;
+TaskHandle_t xTask_IMU;
 
 
 TimerHandle_t SensorTimer;
@@ -98,28 +98,28 @@ char* my_fgets (char* ln, int sz, FILE* f)
 void vTask_Serial( void *pvParameters ) {
     monitor(); //does not return
 }
-void vTask_MCU(void *pvParameters) {
+void vTask_IMU(void *pvParameters) {
   float x = 0;
   float y = 0;
-  BubbleData MCUData;
+  BubbleData IMUData;
 
   for (;;) {
     x = (x + MMA.x() * 16.0) / 2.0;
     y = (y - (MMA.y() * 16.0)) / 2.0;
 
-    MCUData.x = x;
-    MCUData.y = y;
+    IMUData.x = x;
+    IMUData.y = y;
 
-    xQueueSend(xBubbleQueue, &MCUData, 0);
+    xQueueSend(xBubbleQueue, &IMUData, 0);
     vTaskDelay(pdMS_TO_TICKS(200));
   }
 }
 void vTask_BubbleLevel(void *pvParameters) {
-  BubbleData MCUData;
+  BubbleData IMUData;
   for (;;) {
-    if (xQueueReceive(xBubbleQueue, &MCUData, portMAX_DELAY)) {
+    if (xQueueReceive(xBubbleQueue, &IMUData, portMAX_DELAY)) {
         lcd.fillrect(95,0,127,31,0); // erase old bubble
-        lcd.fillcircle(MCUData.x + 111, MCUData.y + 15, 3, 1); // draw bubble
+        lcd.fillcircle(IMUData.x + 111, IMUData.y + 15, 3, 1); // draw bubble
         lcd.circle(111, 15, 8, 1);
         lcd.line(95, 0, 95, 31, 1); // draw margin line
 
@@ -336,7 +336,7 @@ int main( void ) {
     xTaskCreate( vTask_Pot2, "Pot2 Task", 2*configMINIMAL_STACK_SIZE, NULL, 1, &xTask_Pot2);
     xTaskCreate( vTask_BubbleLevel, "Bubble Level Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, &xTask_Bubble );
     xTaskCreate( vTask_KillBitGame, "KillBitGame", 2*configMINIMAL_STACK_SIZE, NULL, 8, &xTask_KillBitGame );
-    xTaskCreate(vTask_MCU, "MCU", 2 * configMINIMAL_STACK_SIZE, NULL, 1, &xTask_MCU);
+    xTaskCreate(vTask_IMU, "IMU", 2 * configMINIMAL_STACK_SIZE, NULL, 1, &xTask_IMU);
     vTaskSuspend(xTask_KillBitGame);
     /* Start the created tasks running. */
     xTimerStart(SensorTimer, 0);

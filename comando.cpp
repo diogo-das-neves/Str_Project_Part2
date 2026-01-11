@@ -36,7 +36,7 @@ extern TaskHandle_t xTask_AlarmTemp;
 extern TaskHandle_t xTask_AlarmClock;
 extern TaskHandle_t xTask_TempLight;
 extern TaskHandle_t xTask_KillBitGame;
-extern TaskHandle_t xTask_MCU;
+extern TaskHandle_t xTask_IMU;
 
 extern SemaphoreHandle_t ClockMutex;
 extern SemaphoreHandle_t RecordMutex;
@@ -389,13 +389,13 @@ void cmd_bubblelevelen(int argc, char **argv) {
     if(atoi(argv[1])) {
         bubble_level_bl = 1;
         vTaskResume(xTask_Bubble);
-        vTaskResume(xTask_MCU);
+        vTaskResume(xTask_IMU);
         printf("\nBubble Level enabled.");
     }
     else {
         bubble_level_bl = 0;
         vTaskSuspend(xTask_Bubble);
-        vTaskSuspend(xTask_MCU);
+        vTaskSuspend(xTask_IMU);
         lcd.fillrect(95,0,127,31,0);
         printf("\nBubble Level disabled.");
     }
