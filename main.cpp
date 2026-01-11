@@ -201,7 +201,7 @@ void vTask_LCD(void *pvParameters){
         //lcd.fillrect(0,0,94,32,0); // clear framebuffer
         lcd.printf("%02d:%02d:%02d",tm.tm_hour,tm.tm_min,tm.tm_sec);
         lcd.locate(0,11); //13
-        lcd.printf("A: C T");
+        lcd.printf("A: %c %c", alarm_clock? 'C':' ', temp_alarm? 'T':' ');
         lcd.locate(0,22); //26
 
         lcd.printf("T(C) =%7.3f\n", sensor_read);
