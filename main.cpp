@@ -64,6 +64,8 @@ QueueHandle_t xQueue;
 QueueHandle_t xBubbleQueue;
 
 SemaphoreHandle_t xMeasureTempSemaphore;
+SemaphoreHandle_t xAlarmSemaphore;
+
 SemaphoreHandle_t TempMutex;
 volatile float temperature; 
 
@@ -125,40 +127,24 @@ void vTask_BubbleLevel(void *pvParameters) {
     }
   }
 }
-void vTask_AlarmTemp(void *pvParameters){
+void vTask_Alarm(void *pvParameters){
     float p;
     float dc;
     for(;;){
-        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-        MUTEX_TAKE(AlarmMutex)
-        p = Period;
-        dc = DutyCycle;
-        spkr.period(p);
-        spkr = dc;
-        MUTEX_RETURN(AlarmMutex)
-        vTaskDelay(pdMS_TO_TICKS(alarm_duration_TALA * 1000));
-        MUTEX_TAKE(AlarmMutex)
-        spkr = 0.0f;
-        MUTEX_RETURN(AlarmMutex)
+        if(xSemaphoreTake(xAlarmSemaphore, portMAX_DELAY)){
+            MUTEX_TAKE(AlarmMutex)
+            p = Period;
+            dc = DutyCycle;
+            spkr.period(p);
+            spkr = dc;
+            MUTEX_RETURN(AlarmMutex)
+            vTaskDelay(pdMS_TO_TICKS(alarm_duration_TALA * 1000));
+            MUTEX_TAKE(AlarmMutex)
+            spkr = 0.0f;
+            MUTEX_RETURN(AlarmMutex)
+        }
     }
 }
-void vTask_AlarmClock(void *pvParameters) {
-    float p, dc;
-    for (;;){
-        ulTaskNotifyTake(pdFALSE, portMAX_DELAY);
-        MUTEX_TAKE(AlarmMutex)
-        p = Period;
-        dc = DutyCycle;
-        spkr.period(p);
-        spkr = dc;
-        MUTEX_RETURN(AlarmMutex)
-
-        vTaskDelay(pdMS_TO_TICKS(alarm_duration_TALA * 1000));
-        MUTEX_TAKE(AlarmMutex)
-        spkr = 0.0f;
-        MUTEX_RETURN(AlarmMutex)
-    
-}}
 
 void vTask_Pot1(void *pvParameters){
     float f;
@@ -192,6 +178,7 @@ void vTask_temp(void *pvParameters){
         }
     }
 }
+
 static void TempTimerCallback(TimerHandle_t xTimer) {
     xSemaphoreGive(xMeasureTempSemaphore);
 }
@@ -272,11 +259,11 @@ void vTask_Temp_Light_Alarm(void *pvParamaters){
 
         if (sensor_read >= (float)high_threshold_TH){
             hsvLED(0.0, 1.0, LED_BRIGHTNESS);
-            xTaskNotify(xTask_AlarmTemp, 0,eNoAction);
+            xSemaphoreGive(xAlarmSemaphore);
         }
         else if(sensor_read <= (float)low_threshold_TL){
             hsvLED(240.0, 1.0, LED_BRIGHTNESS);
-            xTaskNotify(xTask_AlarmTemp, 0,eNoAction);
+            xSemaphoreGive(xAlarmSemaphore);
         }
         else{
             float H = (1.0 - (sensor_read - (float)low_threshold_TL) / ((float)high_threshold_TH - (float)low_threshold_TL)) * 240.0;
@@ -291,10 +278,8 @@ void vTask_Temp_Light_Alarm(void *pvParamaters){
 void alarmFunction(void)
 {
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;  
-    vTaskNotifyGiveFromISR( xTask_AlarmClock,&xHigherPriorityTaskWoken );  
+    xSemaphoreGiveFromISR( xAlarmSemaphore, &xHigherPriorityTaskWoken );
     portYIELD_FROM_ISR( xHigherPriorityTaskWoken );  
-
-
 }
 
 void vTask_KillBitGame(void *pvParameters) {
@@ -329,6 +314,8 @@ int main( void ) {
     xBubbleQueue = xQueueCreate(4, sizeof(BubbleData));
 
     vSemaphoreCreateBinary(xMeasureTempSemaphore);
+    vSemaphoreCreateBinary(xAlarmSemaphore);
+
     xSemaphoreGive(xMeasureTempSemaphore);
 
 
@@ -340,8 +327,7 @@ int main( void ) {
          TempTimerCallback);
 
     xTaskCreate( vTask_Serial, "SerialComms Task", 2*configMINIMAL_STACK_SIZE, NULL, 1, NULL );
-    xTaskCreate( vTask_AlarmClock, "Alarm clock Task", 2*configMINIMAL_STACK_SIZE, NULL,3, &xTask_AlarmClock );
-    xTaskCreate( vTask_AlarmTemp, "Alarm temp Task", 2*configMINIMAL_STACK_SIZE, NULL, 3, &xTask_AlarmTemp );
+    xTaskCreate( vTask_Alarm, "Alarm Task", 2*configMINIMAL_STACK_SIZE, NULL, 3, &xTask_AlarmTemp );
     xTaskCreate( vTask_temp, "Temp Task", 2*configMINIMAL_STACK_SIZE, NULL, 5, &xTask_temp );
     xTaskCreate( vTask_LCD, "LCD Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, NULL );
     xTaskCreate( vTask_Temp_Light_Alarm, "TempAlarm Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, &xTask_TempLight );
