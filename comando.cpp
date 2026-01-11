@@ -36,11 +36,13 @@ extern TaskHandle_t xTask_AlarmTemp;
 extern TaskHandle_t xTask_AlarmClock;
 extern TaskHandle_t xTask_TempLight;
 extern TaskHandle_t xTask_KillBitGame;
+extern TaskHandle_t xTask_MCU;
 
 extern SemaphoreHandle_t ClockMutex;
 extern SemaphoreHandle_t RecordMutex;
 extern SemaphoreHandle_t ParamMutex;
 extern SemaphoreHandle_t StateMutex;
+extern SemaphoreHandle_t AlarmMutex;
 
 extern SemaphoreHandle_t xMeasureTempSemaphore;
 extern SemaphoreHandle_t TempMutex;
@@ -57,12 +59,13 @@ extern volatile bool temp_alarm;
 
 bool bubble_level_bl = 1;
 bool hit_bit_hb = 0;
-bool config_sound_cs = 0;
+bool config_sound_cs = 1;
 
 extern C12832 lcd;
 extern void alarmFunction(void);
 tm alarm_time = RTC::getDefaultTM();
 extern KillBit bitGame;
+extern bool alarm;
 /*-------------------------------------------------------------------------+
 | Helper function: validateInput - clamp input to allowed range
 +--------------------------------------------------------------------------*/ 
@@ -309,6 +312,10 @@ void cmd_setalarmclock(int argc, char **argv) {
 +--------------------------------------------------------------------------*/
 void cmd_setalarmtemp(int argc, char **argv) {
     MUTEX_TAKE(ParamMutex)
+    if(atoi(argv[0]) > atoi(argv[1])){
+        printf("\nInvalid input");
+        return;
+    }
     int err = 0;
     err |= validateInput(
         atoi(argv[1]), 0, 50, (int*)&low_threshold_TL);
@@ -335,6 +342,9 @@ void cmd_alarmclocken(int argc, char **argv) {
     else { 
         vTaskSuspend(xTask_AlarmClock);
         alarm_clock = 0;
+        MUTEX_TAKE(AlarmMutex)
+        alarm = false;
+        MUTEX_RETURN(AlarmMutex)
         printf("\nAlarm clock disabled.");
     }
     MUTEX_RETURN(ParamMutex)
@@ -351,6 +361,7 @@ void cmd_tempalarmen(int argc, char **argv) {
         printf("\nTemperature alarm enabled.");
     }
     else {
+        printf("Handle AlarmTemp = %p\n", xTask_AlarmTemp);
         vTaskSuspend(xTask_AlarmTemp);
         temp_alarm = 0;
         printf("\nTemperature alarm disabled.");
@@ -378,12 +389,14 @@ void cmd_bubblelevelen(int argc, char **argv) {
     if(atoi(argv[1])) {
         bubble_level_bl = 1;
         vTaskResume(xTask_Bubble);
+        vTaskResume(xTask_MCU);
         printf("\nBubble Level enabled.");
     }
     else {
         bubble_level_bl = 0;
         lcd.fillrect(95,0,127,31,0);
         vTaskSuspend(xTask_Bubble);
+        vTaskSuspend(xTask_MCU);
         printf("\nBubble Level disabled.");
     }
     MUTEX_RETURN(StateMutex)

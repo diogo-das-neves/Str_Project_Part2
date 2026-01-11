@@ -37,7 +37,7 @@ TaskHandle_t xTask_Bubble;
 TaskHandle_t xTask_Pot1;
 TaskHandle_t xTask_Pot2;
 TaskHandle_t xTask_KillBitGame;
-
+TaskHandle_t xTask_MCU;
 
 
 TimerHandle_t SensorTimer;
@@ -61,6 +61,7 @@ PwmOut spkr(p26); //buzzer
 
 
 QueueHandle_t xQueue;
+QueueHandle_t xBubbleQueue;
 
 SemaphoreHandle_t xMeasureTempSemaphore;
 SemaphoreHandle_t TempMutex;
@@ -95,19 +96,33 @@ char* my_fgets (char* ln, int sz, FILE* f)
 void vTask_Serial( void *pvParameters ) {
     monitor(); //does not return
 }
+void vTask_MCU(void *pvParameters) {
+  float x = 0;
+  float y = 0;
+  BubbleData MCUData;
 
-void vTask_BubbleLevel(void *pvParameters){
-    float x = 0;
-    float y = 0;
-    for(;;){
-        x = (x + MMA.x() * 16.0)/2.0;
-        y = (y -(MMA.y() * 16.0))/2.0;
-        lcd.fillcircle(x+111, y+15, 3, 1); //draw bubble
-        lcd.circle(111, 15, 8, 1);
-        lcd.line(95,0,95,31,1); // draw margin line
-        vTaskDelay(pdMS_TO_TICKS(100));
-        lcd.fillcircle(x+111, y+15, 3, 0); //erase bubble
+  for (;;) {
+    x = (x + MMA.x() * 16.0) / 2.0;
+    y = (y - (MMA.y() * 16.0)) / 2.0;
+
+    MCUData.x = x;
+    MCUData.y = y;
+
+    xQueueSend(xBubbleQueue, &MCUData, 0);
+    vTaskDelay(pdMS_TO_TICKS(200));
+  }
+}
+void vTask_BubbleLevel(void *pvParameters) {
+  BubbleData MCUData;
+  for (;;) {
+    if (xQueueReceive(xBubbleQueue, &MCUData, portMAX_DELAY)) {
+      lcd.fillcircle(MCUData.x + 111, MCUData.y + 15, 3, 1); // draw bubble
+      lcd.circle(111, 15, 8, 1);
+      lcd.line(95, 0, 95, 31, 1); // draw margin line
+      vTaskDelay(pdMS_TO_TICKS(100));
+      lcd.fillcircle(MCUData.x + 111, MCUData.y + 15, 3, 0); // erase bubble
     }
+  }
 }
 void vTask_AlarmTemp(void *pvParameters){
     float p;
@@ -127,25 +142,31 @@ void vTask_AlarmTemp(void *pvParameters){
     }
 }
 void vTask_AlarmClock(void *pvParameters) {
+    bool a ;
+    for (;;){
+        MUTEX_TAKE(AlarmMutex)
+        a = alarm;
+        MUTEX_RETURN(AlarmMutex)
+        if(!a){
+            taskYIELD(); 
+            continue;
+            }
 
-    for (;;) {
-        if(alarm)
-        {
-            alarm = false;
-            float p, dc;
-            MUTEX_TAKE(AlarmMutex)
-            p = Period;
-            dc = DutyCycle;
-            MUTEX_RETURN(AlarmMutex)
+        alarm = false;
+        float p, dc;
+        MUTEX_TAKE(AlarmMutex)
+        p = Period;
+        dc = DutyCycle;
+        MUTEX_RETURN(AlarmMutex)
 
-            spkr.period(p);
-            spkr = dc;
+        spkr.period(p);
+        spkr = dc;
 
-            vTaskDelay(pdMS_TO_TICKS(alarm_duration_TALA * 1000));
-            MUTEX_TAKE(AlarmMutex)
-            spkr = 0.0f;
-            MUTEX_RETURN(AlarmMutex)
-    }
+        vTaskDelay(pdMS_TO_TICKS(alarm_duration_TALA * 1000));
+        MUTEX_TAKE(AlarmMutex)
+        spkr = 0.0f;
+        MUTEX_RETURN(AlarmMutex)
+    
 }}
 
 void vTask_Pot1(void *pvParameters){
@@ -260,11 +281,13 @@ void vTask_Temp_Light_Alarm(void *pvParamaters){
 
         if (sensor_read >= (float)high_threshold_TH){
             hsvLED(0.0, 1.0, LED_BRIGHTNESS);
-            xTaskNotify(xTask_AlarmTemp, 0,eNoAction);
+            if(temp_alarm)
+                xTaskNotify(xTask_AlarmTemp, 0,eNoAction);
         }
         else if(sensor_read <= (float)low_threshold_TL){
             hsvLED(240.0, 1.0, LED_BRIGHTNESS);
-            xTaskNotify(xTask_AlarmTemp, 0,eNoAction);
+            if(temp_alarm)
+                xTaskNotify(xTask_AlarmTemp, 0,eNoAction);
         }
         else{
             float H = (1.0 - (sensor_read - (float)low_threshold_TL) / ((float)high_threshold_TH - (float)low_threshold_TL)) * 240.0;
@@ -310,6 +333,8 @@ int main( void ) {
     /* --- APPLICATION TASKS CAN BE CREATED HERE --- */
 
     xQueue = xQueueCreate( 4, sizeof( int32_t ) );
+    xBubbleQueue = xQueueCreate(4, sizeof(BubbleData));
+
     vSemaphoreCreateBinary(xMeasureTempSemaphore);
     xSemaphoreGive(xMeasureTempSemaphore);
 
@@ -328,10 +353,11 @@ int main( void ) {
     xTaskCreate( vTask_LCD, "LCD Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, NULL );
     xTaskCreate( vTask_Temp_Light_Alarm, "TempAlarm Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, &xTask_TempLight );
     xTaskCreate( vTask_records, "TempRecords Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, NULL);
-    xTaskCreate( vTask_Pot1, "Pot1 Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, &xTask_Pot1);
-    xTaskCreate( vTask_Pot2, "Pot2 Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, &xTask_Pot2);
+    xTaskCreate( vTask_Pot1, "Pot1 Task", 2*configMINIMAL_STACK_SIZE, NULL, 1, &xTask_Pot1);
+    xTaskCreate( vTask_Pot2, "Pot2 Task", 2*configMINIMAL_STACK_SIZE, NULL, 1, &xTask_Pot2);
     xTaskCreate( vTask_BubbleLevel, "Bubble Level Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, &xTask_Bubble );
     xTaskCreate( vTask_KillBitGame, "KillBitGame", 2*configMINIMAL_STACK_SIZE, NULL, 8, &xTask_KillBitGame );
+    xTaskCreate(vTask_MCU, "MCU", 2 * configMINIMAL_STACK_SIZE, NULL, 1, &xTask_MCU);
     vTaskSuspend(xTask_KillBitGame);
     /* Start the created tasks running. */
     xTimerStart(SensorTimer, 0);

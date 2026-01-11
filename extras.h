@@ -9,6 +9,11 @@ typedef struct {
     tm timestamp;
 } Record;
 
+typedef struct{
+    float x;
+    float y;
+} BubbleData;
+
 
 /*-------------------------------------------------------------------------+
 | Helper macros: avoid checking the mutex by hand every time
