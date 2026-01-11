@@ -116,11 +116,12 @@ void vTask_BubbleLevel(void *pvParameters) {
   BubbleData MCUData;
   for (;;) {
     if (xQueueReceive(xBubbleQueue, &MCUData, portMAX_DELAY)) {
-      lcd.fillcircle(MCUData.x + 111, MCUData.y + 15, 3, 1); // draw bubble
-      lcd.circle(111, 15, 8, 1);
-      lcd.line(95, 0, 95, 31, 1); // draw margin line
-      vTaskDelay(pdMS_TO_TICKS(100));
-      lcd.fillcircle(MCUData.x + 111, MCUData.y + 15, 3, 0); // erase bubble
+        lcd.fillrect(95,0,127,31,0); // erase old bubble
+        lcd.fillcircle(MCUData.x + 111, MCUData.y + 15, 3, 1); // draw bubble
+        lcd.circle(111, 15, 8, 1);
+        lcd.line(95, 0, 95, 31, 1); // draw margin line
+
+        vTaskDelay(pdMS_TO_TICKS(33)); //30Hz LCD
     }
   }
 }
@@ -132,9 +133,9 @@ void vTask_AlarmTemp(void *pvParameters){
         MUTEX_TAKE(AlarmMutex)
         p = Period;
         dc = DutyCycle;
-        MUTEX_RETURN(AlarmMutex)
         spkr.period(p);
         spkr = dc;
+        MUTEX_RETURN(AlarmMutex)
         vTaskDelay(pdMS_TO_TICKS(alarm_duration_TALA * 1000));
         MUTEX_TAKE(AlarmMutex)
         spkr = 0.0f;
@@ -148,10 +149,9 @@ void vTask_AlarmClock(void *pvParameters) {
         MUTEX_TAKE(AlarmMutex)
         p = Period;
         dc = DutyCycle;
-        MUTEX_RETURN(AlarmMutex)
-
         spkr.period(p);
         spkr = dc;
+        MUTEX_RETURN(AlarmMutex)
 
         vTaskDelay(pdMS_TO_TICKS(alarm_duration_TALA * 1000));
         MUTEX_TAKE(AlarmMutex)
@@ -272,13 +272,11 @@ void vTask_Temp_Light_Alarm(void *pvParamaters){
 
         if (sensor_read >= (float)high_threshold_TH){
             hsvLED(0.0, 1.0, LED_BRIGHTNESS);
-            if(temp_alarm)
-                xTaskNotify(xTask_AlarmTemp, 0,eNoAction);
+            xTaskNotify(xTask_AlarmTemp, 0,eNoAction);
         }
         else if(sensor_read <= (float)low_threshold_TL){
             hsvLED(240.0, 1.0, LED_BRIGHTNESS);
-            if(temp_alarm)
-                xTaskNotify(xTask_AlarmTemp, 0,eNoAction);
+            xTaskNotify(xTask_AlarmTemp, 0,eNoAction);
         }
         else{
             float H = (1.0 - (sensor_read - (float)low_threshold_TL) / ((float)high_threshold_TH - (float)low_threshold_TL)) * 240.0;
@@ -342,8 +340,8 @@ int main( void ) {
          TempTimerCallback);
 
     xTaskCreate( vTask_Serial, "SerialComms Task", 2*configMINIMAL_STACK_SIZE, NULL, 1, NULL );
-    xTaskCreate( vTask_AlarmClock, "Alarm  clock Task", 2*configMINIMAL_STACK_SIZE, NULL,2, &xTask_AlarmClock );
-    xTaskCreate( vTask_AlarmTemp, "Alarm temp Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, &xTask_AlarmTemp );
+    xTaskCreate( vTask_AlarmClock, "Alarm clock Task", 2*configMINIMAL_STACK_SIZE, NULL,3, &xTask_AlarmClock );
+    xTaskCreate( vTask_AlarmTemp, "Alarm temp Task", 2*configMINIMAL_STACK_SIZE, NULL, 3, &xTask_AlarmTemp );
     xTaskCreate( vTask_temp, "Temp Task", 2*configMINIMAL_STACK_SIZE, NULL, 5, &xTask_temp );
     xTaskCreate( vTask_LCD, "LCD Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, NULL );
     xTaskCreate( vTask_Temp_Light_Alarm, "TempAlarm Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, &xTask_TempLight );

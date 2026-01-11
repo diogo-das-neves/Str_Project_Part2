@@ -394,9 +394,9 @@ void cmd_bubblelevelen(int argc, char **argv) {
     }
     else {
         bubble_level_bl = 0;
-        lcd.fillrect(95,0,127,31,0);
         vTaskSuspend(xTask_Bubble);
         vTaskSuspend(xTask_MCU);
+        lcd.fillrect(95,0,127,31,0);
         printf("\nBubble Level disabled.");
     }
     MUTEX_RETURN(StateMutex)
