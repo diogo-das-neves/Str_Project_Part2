@@ -142,18 +142,9 @@ void vTask_AlarmTemp(void *pvParameters){
     }
 }
 void vTask_AlarmClock(void *pvParameters) {
-    bool a ;
+    float p, dc;
     for (;;){
-        MUTEX_TAKE(AlarmMutex)
-        a = alarm;
-        MUTEX_RETURN(AlarmMutex)
-        if(!a){
-            taskYIELD(); 
-            continue;
-            }
-
-        alarm = false;
-        float p, dc;
+        ulTaskNotifyTake(pdFALSE, portMAX_DELAY);
         MUTEX_TAKE(AlarmMutex)
         p = Period;
         dc = DutyCycle;
@@ -301,7 +292,11 @@ void vTask_Temp_Light_Alarm(void *pvParamaters){
 
 void alarmFunction(void)
 {
-    alarm = true;
+    BaseType_t xHigherPriorityTaskWoken = pdFALSE;  
+    vTaskNotifyGiveFromISR( xTask_AlarmClock,&xHigherPriorityTaskWoken );  
+    portYIELD_FROM_ISR( xHigherPriorityTaskWoken );  
+
+
 }
 
 void vTask_KillBitGame(void *pvParameters) {
@@ -347,7 +342,7 @@ int main( void ) {
          TempTimerCallback);
 
     xTaskCreate( vTask_Serial, "SerialComms Task", 2*configMINIMAL_STACK_SIZE, NULL, 1, NULL );
-    xTaskCreate( vTask_AlarmClock, "Alarm  clock Task", 2*configMINIMAL_STACK_SIZE, NULL,1, &xTask_AlarmClock );
+    xTaskCreate( vTask_AlarmClock, "Alarm  clock Task", 2*configMINIMAL_STACK_SIZE, NULL,2, &xTask_AlarmClock );
     xTaskCreate( vTask_AlarmTemp, "Alarm temp Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, &xTask_AlarmTemp );
     xTaskCreate( vTask_temp, "Temp Task", 2*configMINIMAL_STACK_SIZE, NULL, 5, &xTask_temp );
     xTaskCreate( vTask_LCD, "LCD Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, NULL );
