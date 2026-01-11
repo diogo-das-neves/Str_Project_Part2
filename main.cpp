@@ -19,8 +19,8 @@ volatile int low_threshold_TL = 10;
 volatile int high_threshold_TH = 25;
 volatile int monitoring_period_PMON = 5;
 volatile int alarm_duration_TALA = 10;
-volatile bool alarm_clock = 1;
-volatile bool temp_alarm = 1;
+volatile bool alarm_clock = 0;
+volatile bool temp_alarm = 0;
 
 SemaphoreHandle_t AlarmMutex;
 SemaphoreHandle_t ClockMutex;
@@ -75,7 +75,6 @@ volatile float Period;
 volatile float DutyCycle;
 Record maxtemp;
 Record mintemp;
-volatile bool alarm = false;
 
 /*-------------------------------------------------------------------------+
 | Function: my_fgets        (called from my_getline / monitor) 
@@ -259,11 +258,11 @@ void vTask_Temp_Light_Alarm(void *pvParamaters){
 
         if (sensor_read >= (float)high_threshold_TH){
             hsvLED(0.0, 1.0, LED_BRIGHTNESS);
-            xSemaphoreGive(xAlarmSemaphore);
+            if(temp_alarm) xSemaphoreGive(xAlarmSemaphore);
         }
         else if(sensor_read <= (float)low_threshold_TL){
             hsvLED(240.0, 1.0, LED_BRIGHTNESS);
-            xSemaphoreGive(xAlarmSemaphore);
+            if(temp_alarm) xSemaphoreGive(xAlarmSemaphore);
         }
         else{
             float H = (1.0 - (sensor_read - (float)low_threshold_TL) / ((float)high_threshold_TH - (float)low_threshold_TL)) * 240.0;
@@ -278,7 +277,7 @@ void vTask_Temp_Light_Alarm(void *pvParamaters){
 void alarmFunction(void)
 {
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;  
-    xSemaphoreGiveFromISR( xAlarmSemaphore, &xHigherPriorityTaskWoken );
+    if(alarm_clock) xSemaphoreGiveFromISR( xAlarmSemaphore, &xHigherPriorityTaskWoken );
     portYIELD_FROM_ISR( xHigherPriorityTaskWoken );  
 }
 

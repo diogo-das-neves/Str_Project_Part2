@@ -65,7 +65,7 @@ extern C12832 lcd;
 extern void alarmFunction(void);
 tm alarm_time = RTC::getDefaultTM();
 extern KillBit bitGame;
-extern bool alarm;
+//extern bool alarm;
 /*-------------------------------------------------------------------------+
 | Helper function: validateInput - clamp input to allowed range
 +--------------------------------------------------------------------------*/ 
@@ -335,16 +335,13 @@ void cmd_setalarmtemp(int argc, char **argv) {
 void cmd_alarmclocken(int argc, char **argv) {
     MUTEX_TAKE(ParamMutex)
     if(atoi(argv[1])) {
-        vTaskResume(xTask_AlarmClock);
+
         alarm_clock = 1;
         printf("\nAlarm clock enabled.");
     }
     else { 
-        vTaskSuspend(xTask_AlarmClock);
+
         alarm_clock = 0;
-        MUTEX_TAKE(AlarmMutex)
-        alarm = false;
-        MUTEX_RETURN(AlarmMutex)
         printf("\nAlarm clock disabled.");
     }
     MUTEX_RETURN(ParamMutex)
@@ -356,13 +353,12 @@ void cmd_alarmclocken(int argc, char **argv) {
 void cmd_tempalarmen(int argc, char **argv) {
     MUTEX_TAKE(ParamMutex)
     if(atoi(argv[1])) {
-        vTaskResume(xTask_AlarmTemp);
+
         temp_alarm = 1;
         printf("\nTemperature alarm enabled.");
     }
     else {
-        printf("Handle AlarmTemp = %p\n", xTask_AlarmTemp);
-        vTaskSuspend(xTask_AlarmTemp);
+
         temp_alarm = 0;
         printf("\nTemperature alarm disabled.");
     }
