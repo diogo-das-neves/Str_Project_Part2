@@ -334,8 +334,8 @@ int main( void ) {
     xTaskCreate( vTask_Pot1, "Pot1 Task", 2*configMINIMAL_STACK_SIZE, NULL, 1, &xTask_Pot1);
     xTaskCreate( vTask_Pot2, "Pot2 Task", 2*configMINIMAL_STACK_SIZE, NULL, 1, &xTask_Pot2);
     xTaskCreate( vTask_BubbleLevel, "Bubble Level Task", 2*configMINIMAL_STACK_SIZE, NULL, 2, &xTask_Bubble );
-    xTaskCreate( vTask_KillBitGame, "KillBitGame", 2*configMINIMAL_STACK_SIZE, NULL, 8, &xTask_KillBitGame );
-    xTaskCreate(vTask_IMU, "IMU", 2 * configMINIMAL_STACK_SIZE, NULL, 1, &xTask_IMU);
+    xTaskCreate( vTask_KillBitGame, "KillBitGame", 2*configMINIMAL_STACK_SIZE, NULL, 2, &xTask_KillBitGame );
+    xTaskCreate(vTask_IMU, "IMU", 2 * configMINIMAL_STACK_SIZE, NULL, 5, &xTask_IMU);
     vTaskSuspend(xTask_KillBitGame);
     /* Start the created tasks running. */
     xTimerStart(SensorTimer, 0);
