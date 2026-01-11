@@ -64,7 +64,7 @@ void RTC::_attach(TimeUnit interval)
 
 
     //We can always enable IRQs, since if all IRQs are disabled by the user the RTC hardware will never raise its IRQ flag anyway
-    NVIC_SetPriority(RTC_IRQn, configMAX_SYSCALL_INTERRUPT_PRIORITY + 1);
+    NVIC_SetPriority(RTC_IRQn, 254);
     NVIC_EnableIRQ(RTC_IRQn);
     
 }
@@ -183,7 +183,7 @@ void RTC::_alarm(tm alarmTime)
     LPC_RTC->DOW = localtime(&t)->tm_wday;
 
     //We can always enable IRQs, since if all IRQs are disabled by the user the RTC hardware will never raise its IRQ flag anyway
-    NVIC_SetPriority(RTC_IRQn, configMAX_SYSCALL_INTERRUPT_PRIORITY + 1);
+    NVIC_SetPriority(RTC_IRQn, 254);
     NVIC_EnableIRQ(RTC_IRQn);
 }
 
